@@ -1,0 +1,354 @@
+import * as cdk          from 'aws-cdk-lib'
+import { Construct }     from 'constructs'
+import * as s3           from 'aws-cdk-lib/aws-s3'
+import * as s3deploy     from 'aws-cdk-lib/aws-s3-deployment'
+import * as cognito      from 'aws-cdk-lib/aws-cognito'
+import * as lambda       from 'aws-cdk-lib/aws-lambda'
+import * as apigw        from 'aws-cdk-lib/aws-apigateway'
+import * as dynamodb     from 'aws-cdk-lib/aws-dynamodb'
+import * as sfn          from 'aws-cdk-lib/aws-stepfunctions'
+import * as tasks        from 'aws-cdk-lib/aws-stepfunctions-tasks'
+import * as events       from 'aws-cdk-lib/aws-events'
+import * as eventTargets from 'aws-cdk-lib/aws-events-targets'
+import * as iam          from 'aws-cdk-lib/aws-iam'
+import * as cloudfront   from 'aws-cdk-lib/aws-cloudfront'
+import * as cr           from 'aws-cdk-lib/custom-resources'
+import * as path         from 'path'
+
+// The existing CloudFront distribution serving esaheki.com.
+// Managed by a separate CDK stack — we add a /aws* behavior via Custom Resource.
+const EXISTING_DISTRIBUTION_ID = 'EMKYH9HKL6ZLM'
+
+export class CertpathStack extends cdk.Stack {
+  constructor(scope: Construct, id: string, props?: cdk.StackProps) {
+    super(scope, id, props)
+
+    // ── DynamoDB tables ───────────────────────────────────────────────────────
+
+    const profilesTable = new dynamodb.Table(this, 'ProfilesTable', {
+      tableName: 'certpath-profiles',
+      partitionKey: { name: 'pk', type: dynamodb.AttributeType.STRING },
+      billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
+      removalPolicy: cdk.RemovalPolicy.RETAIN,
+    })
+
+    const examGuidesTable = new dynamodb.Table(this, 'ExamGuidesTable', {
+      tableName: 'certpath-examguides',
+      partitionKey: { name: 'pk', type: dynamodb.AttributeType.STRING },
+      billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
+      timeToLiveAttribute: 'ttl',
+      removalPolicy: cdk.RemovalPolicy.DESTROY,
+    })
+
+    const executionsTable = new dynamodb.Table(this, 'ExecutionsTable', {
+      tableName: 'certpath-executions',
+      partitionKey: { name: 'pk', type: dynamodb.AttributeType.STRING },
+      billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
+      timeToLiveAttribute: 'ttl',
+      removalPolicy: cdk.RemovalPolicy.DESTROY,
+    })
+
+    // ── Cognito User Pool ─────────────────────────────────────────────────────
+
+    const userPool = new cognito.UserPool(this, 'UserPool', {
+      userPoolName: 'certpath-users',
+      selfSignUpEnabled: true,
+      signInAliases: { email: true },
+      autoVerify: { email: true },
+      accountRecovery: cognito.AccountRecovery.EMAIL_ONLY,
+      removalPolicy: cdk.RemovalPolicy.RETAIN,
+    })
+
+    // TODO: Add Google IdP when Google OAuth credentials are available
+
+    const userPoolClient = new cognito.UserPoolClient(this, 'UserPoolClient', {
+      userPool,
+      generateSecret: false,
+      oAuth: {
+        flows: { authorizationCodeGrant: true },
+        scopes: [cognito.OAuthScope.OPENID, cognito.OAuthScope.EMAIL, cognito.OAuthScope.PROFILE],
+        callbackUrls: ['https://esaheki.com/aws', 'http://localhost:5173/callback'],
+        logoutUrls:   ['https://esaheki.com/aws', 'http://localhost:5173'],
+      },
+    })
+
+    const userPoolDomain = new cognito.UserPoolDomain(this, 'UserPoolDomain', {
+      userPool,
+      cognitoDomain: { domainPrefix: 'certpath-auth' },
+    })
+
+    // ── Bedrock IAM policy (reusable) ────────────────────────────────────────
+
+    const bedrockPolicy = new iam.PolicyStatement({
+      actions: ['bedrock:InvokeModel'],
+      resources: ['*'],
+    })
+
+    // ── Lambda: analyze-classify ─────────────────────────────────────────────
+
+    const classifyFn = new lambda.Function(this, 'AnalyzeClassify', {
+      functionName: 'certpath-analyze-classify',
+      runtime: lambda.Runtime.NODEJS_20_X,
+      handler: 'index.handler',
+      code: lambda.Code.fromAsset(path.join(__dirname, '../../backend/functions/analyze-classify')),
+      timeout: cdk.Duration.seconds(30),
+      memorySize: 256,
+      environment: { EXECUTIONS_TABLE: executionsTable.tableName },
+    })
+    classifyFn.addToRolePolicy(bedrockPolicy)
+    executionsTable.grantWriteData(classifyFn)
+
+    // ── Lambda: analyze-fetch-docs ───────────────────────────────────────────
+
+    const fetchDocsFn = new lambda.Function(this, 'AnalyzeFetchDocs', {
+      functionName: 'certpath-analyze-fetch-docs',
+      runtime: lambda.Runtime.NODEJS_20_X,
+      handler: 'index.handler',
+      code: lambda.Code.fromAsset(path.join(__dirname, '../../backend/functions/analyze-fetch-docs')),
+      timeout: cdk.Duration.seconds(30),
+      memorySize: 256,
+      environment: {
+        EXAM_GUIDES_TABLE: examGuidesTable.tableName,
+        EXECUTIONS_TABLE:  executionsTable.tableName,
+      },
+    })
+    examGuidesTable.grantReadData(fetchDocsFn)
+    executionsTable.grantWriteData(fetchDocsFn)
+
+    // ── Lambda: analyze-final ────────────────────────────────────────────────
+
+    const finalFn = new lambda.Function(this, 'AnalyzeFinal', {
+      functionName: 'certpath-analyze-final',
+      runtime: lambda.Runtime.NODEJS_20_X,
+      handler: 'index.handler',
+      code: lambda.Code.fromAsset(path.join(__dirname, '../../backend/functions/analyze-final')),
+      timeout: cdk.Duration.seconds(30),
+      memorySize: 256,
+      environment: { EXECUTIONS_TABLE: executionsTable.tableName },
+    })
+    finalFn.addToRolePolicy(bedrockPolicy)
+    executionsTable.grantWriteData(finalFn)
+
+    // ── Step Functions state machine ─────────────────────────────────────────
+
+    const classifyTask = new tasks.LambdaInvoke(this, 'ClassifyCert', {
+      lambdaFunction: classifyFn,
+      outputPath: '$.Payload',
+    })
+    classifyTask.addRetry({ errors: ['States.ALL'], maxAttempts: 3, interval: cdk.Duration.seconds(2), backoffRate: 2 })
+
+    const fetchDocsTask = new tasks.LambdaInvoke(this, 'FetchDocs', {
+      lambdaFunction: fetchDocsFn,
+      outputPath: '$.Payload',
+    })
+    fetchDocsTask.addRetry({ errors: ['States.ALL'], maxAttempts: 3, interval: cdk.Duration.seconds(2), backoffRate: 2 })
+
+    const finalTask = new tasks.LambdaInvoke(this, 'FinalAnalysis', {
+      lambdaFunction: finalFn,
+      outputPath: '$.Payload',
+    })
+    finalTask.addRetry({ errors: ['States.ALL'], maxAttempts: 3, interval: cdk.Duration.seconds(2), backoffRate: 2 })
+
+    const stateMachine = new sfn.StateMachine(this, 'CertpathStateMachine', {
+      stateMachineName: 'certpath-analysis',
+      definitionBody: sfn.DefinitionBody.fromChainable(
+        classifyTask.next(fetchDocsTask).next(finalTask)
+      ),
+      stateMachineType: sfn.StateMachineType.STANDARD,
+    })
+
+    // ── Lambda: analyze-start ────────────────────────────────────────────────
+
+    const analyzeStartFn = new lambda.Function(this, 'AnalyzeStart', {
+      functionName: 'certpath-analyze-start',
+      runtime: lambda.Runtime.NODEJS_20_X,
+      handler: 'index.handler',
+      code: lambda.Code.fromAsset(path.join(__dirname, '../../backend/functions/analyze-start')),
+      timeout: cdk.Duration.seconds(30),
+      memorySize: 256,
+      environment: {
+        STATE_MACHINE_ARN: stateMachine.stateMachineArn,
+        EXECUTIONS_TABLE:  executionsTable.tableName,
+      },
+    })
+    stateMachine.grantStartExecution(analyzeStartFn)
+    executionsTable.grantWriteData(analyzeStartFn)
+
+    // ── Lambda: analyze-status ───────────────────────────────────────────────
+
+    const analyzeStatusFn = new lambda.Function(this, 'AnalyzeStatus', {
+      functionName: 'certpath-analyze-status',
+      runtime: lambda.Runtime.NODEJS_20_X,
+      handler: 'index.handler',
+      code: lambda.Code.fromAsset(path.join(__dirname, '../../backend/functions/analyze-status')),
+      timeout: cdk.Duration.seconds(30),
+      memorySize: 256,
+      environment: { EXECUTIONS_TABLE: executionsTable.tableName },
+    })
+    executionsTable.grantReadData(analyzeStatusFn)
+
+    // ── Lambda: step-tracker ─────────────────────────────────────────────────
+
+    const stepTrackerFn = new lambda.Function(this, 'StepTracker', {
+      functionName: 'certpath-step-tracker',
+      runtime: lambda.Runtime.NODEJS_20_X,
+      handler: 'index.handler',
+      code: lambda.Code.fromAsset(path.join(__dirname, '../../backend/functions/step-tracker')),
+      timeout: cdk.Duration.seconds(30),
+      memorySize: 256,
+      environment: { EXECUTIONS_TABLE: executionsTable.tableName },
+    })
+    executionsTable.grantWriteData(stepTrackerFn)
+
+    // ── Lambda: populate-exam-guides ─────────────────────────────────────────
+
+    const populateExamGuidesFn = new lambda.Function(this, 'PopulateExamGuides', {
+      functionName: 'certpath-populate-exam-guides',
+      runtime: lambda.Runtime.NODEJS_20_X,
+      handler: 'index.handler',
+      code: lambda.Code.fromAsset(path.join(__dirname, '../../backend/functions/populate-exam-guides')),
+      timeout: cdk.Duration.seconds(300),
+      memorySize: 256,
+      environment: { EXAM_GUIDES_TABLE: examGuidesTable.tableName },
+    })
+    populateExamGuidesFn.addToRolePolicy(bedrockPolicy)
+    examGuidesTable.grantWriteData(populateExamGuidesFn)
+
+    // ── EventBridge: SF state changes → step-tracker ─────────────────────────
+
+    const sfEventRule = new events.Rule(this, 'SFExecutionStateChange', {
+      eventPattern: {
+        source: ['aws.states'],
+        detailType: ['Step Functions Execution Status Change'],
+        detail: { stateMachineArn: [stateMachine.stateMachineArn] },
+      },
+    })
+    sfEventRule.addTarget(new eventTargets.LambdaFunction(stepTrackerFn))
+
+    // ── EventBridge: monthly cron → populate-exam-guides ─────────────────────
+
+    const cronRule = new events.Rule(this, 'MonthlyExamGuideRefresh', {
+      schedule: events.Schedule.cron({ minute: '0', hour: '0', day: '1', month: '*', year: '*' }),
+    })
+    cronRule.addTarget(new eventTargets.LambdaFunction(populateExamGuidesFn))
+
+    // ── API Gateway ───────────────────────────────────────────────────────────
+
+    const api = new apigw.RestApi(this, 'CertpathApi', {
+      restApiName: 'certpath-api',
+      defaultCorsPreflightOptions: {
+        allowOrigins: ['https://esaheki.com', 'http://localhost:5173'],
+        allowMethods: apigw.Cors.ALL_METHODS,
+        allowHeaders: ['Content-Type', 'Authorization'],
+      },
+    })
+
+    const authorizer = new apigw.CognitoUserPoolsAuthorizer(this, 'Authorizer', {
+      cognitoUserPools: [userPool],
+    })
+
+    const analyzeRoute = api.root.addResource('analyze')
+    analyzeRoute.addMethod('POST', new apigw.LambdaIntegration(analyzeStartFn), {
+      authorizer,
+      authorizationType: apigw.AuthorizationType.COGNITO,
+    })
+
+    const executionRoute = analyzeRoute.addResource('{executionId}')
+    executionRoute.addMethod('GET', new apigw.LambdaIntegration(analyzeStatusFn), {
+      authorizer,
+      authorizationType: apigw.AuthorizationType.COGNITO,
+    })
+
+    // ── S3: frontend static hosting ───────────────────────────────────────────
+
+    const bucket = new s3.Bucket(this, 'FrontendBucket', {
+      bucketName: `certpath-frontend-${this.account}`,
+      blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
+      removalPolicy: cdk.RemovalPolicy.DESTROY,
+      autoDeleteObjects: true,
+    })
+
+    // Allow the existing esaheki.com CloudFront distribution to read aws/* objects
+    bucket.addToResourcePolicy(new iam.PolicyStatement({
+      actions: ['s3:GetObject'],
+      resources: [bucket.arnForObjects('aws/*')],
+      principals: [new iam.ServicePrincipal('cloudfront.amazonaws.com')],
+      conditions: {
+        StringEquals: {
+          'AWS:SourceArn': `arn:aws:cloudfront::${this.account}:distribution/${EXISTING_DISTRIBUTION_ID}`,
+        },
+      },
+    }))
+
+    // ── Origin Access Control ─────────────────────────────────────────────────
+
+    const oac = new cloudfront.CfnOriginAccessControl(this, 'CertpathOAC', {
+      originAccessControlConfig: {
+        name: 'certpath-oac',
+        originAccessControlOriginType: 's3',
+        signingBehavior: 'always',
+        signingProtocol: 'sigv4',
+        description: 'OAC for CertPath S3 bucket',
+      },
+    })
+
+    // ── Custom Resource: add /aws* behavior to existing distribution ──────────
+
+    const updateDistFn = new lambda.Function(this, 'UpdateDistFunction', {
+      functionName: 'certpath-update-distribution',
+      runtime: lambda.Runtime.NODEJS_20_X,
+      handler: 'index.handler',
+      code: lambda.Code.fromAsset(path.join(__dirname, '../../backend/functions/update-distribution')),
+      timeout: cdk.Duration.seconds(300),
+      memorySize: 256,
+    })
+
+    updateDistFn.addToRolePolicy(new iam.PolicyStatement({
+      actions: [
+        'cloudfront:GetDistributionConfig',
+        'cloudfront:UpdateDistribution',
+        'cloudfront:CreateFunction',
+        'cloudfront:PublishFunction',
+        'cloudfront:DeleteFunction',
+        'cloudfront:DescribeFunction',
+      ],
+      resources: ['*'],
+    }))
+
+    const updateDistProvider = new cr.Provider(this, 'UpdateDistProvider', {
+      onEventHandler: updateDistFn,
+    })
+
+    new cdk.CustomResource(this, 'AddCertpathBehavior', {
+      serviceToken: updateDistProvider.serviceToken,
+      properties: {
+        DistributionId:  EXISTING_DISTRIBUTION_ID,
+        BucketDomain:    bucket.bucketRegionalDomainName,
+        OacId:           oac.attrId,
+        FunctionName:    'certpath-spa-routing',
+        // Increment to force re-run on redeploy
+        Version:         '1',
+      },
+    })
+
+    // ── Frontend deployment ───────────────────────────────────────────────────
+    // Uncomment after running `npm run build` in the project root.
+    // Files are deployed under the aws/ prefix so CloudFront serves them at /aws/*.
+    //
+    // new s3deploy.BucketDeployment(this, 'DeployFrontend', {
+    //   sources: [s3deploy.Source.asset(path.join(__dirname, '../../dist'))],
+    //   destinationBucket: bucket,
+    //   destinationKeyPrefix: 'aws',
+    // })
+
+    // ── Outputs ───────────────────────────────────────────────────────────────
+
+    new cdk.CfnOutput(this, 'SiteUrl',          { value: 'https://esaheki.com/aws' })
+    new cdk.CfnOutput(this, 'ApiGatewayURL',    { value: api.url })
+    new cdk.CfnOutput(this, 'UserPoolId',       { value: userPool.userPoolId })
+    new cdk.CfnOutput(this, 'UserPoolClientId', { value: userPoolClient.userPoolClientId })
+    new cdk.CfnOutput(this, 'CognitoDomain',    { value: `${userPoolDomain.domainName}.auth.${this.region}.amazoncognito.com` })
+    new cdk.CfnOutput(this, 'StateMachineArn',  { value: stateMachine.stateMachineArn })
+    new cdk.CfnOutput(this, 'FrontendBucket',   { value: bucket.bucketName })
+  }
+}

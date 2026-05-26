@@ -1,0 +1,7 @@
+node_modules/
+dist/
+.env.local
+.env
+cdk.out/
+*.js.map
+.DS_Store
