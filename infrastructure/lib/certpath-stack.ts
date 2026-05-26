@@ -25,12 +25,8 @@ export class CertpathStack extends cdk.Stack {
 
     // ── DynamoDB tables ───────────────────────────────────────────────────────
 
-    const profilesTable = new dynamodb.Table(this, 'ProfilesTable', {
-      tableName: 'certpath-profiles',
-      partitionKey: { name: 'pk', type: dynamodb.AttributeType.STRING },
-      billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
-      removalPolicy: cdk.RemovalPolicy.RETAIN,
-    })
+    // certpath-profiles was retained from a prior deploy — import it
+    const profilesTable = dynamodb.Table.fromTableName(this, 'ProfilesTable', 'certpath-profiles')
 
     const examGuidesTable = new dynamodb.Table(this, 'ExamGuidesTable', {
       tableName: 'certpath-examguides',
@@ -50,14 +46,8 @@ export class CertpathStack extends cdk.Stack {
 
     // ── Cognito User Pool ─────────────────────────────────────────────────────
 
-    const userPool = new cognito.UserPool(this, 'UserPool', {
-      userPoolName: 'certpath-users',
-      selfSignUpEnabled: true,
-      signInAliases: { email: true },
-      autoVerify: { email: true },
-      accountRecovery: cognito.AccountRecovery.EMAIL_ONLY,
-      removalPolicy: cdk.RemovalPolicy.RETAIN,
-    })
+    // certpath-users was retained from a prior deploy — import it
+    const userPool = cognito.UserPool.fromUserPoolId(this, 'UserPool', 'us-east-1_8O7WAg33C')
 
     // TODO: Add Google IdP when Google OAuth credentials are available
 
@@ -332,14 +322,12 @@ export class CertpathStack extends cdk.Stack {
     })
 
     // ── Frontend deployment ───────────────────────────────────────────────────
-    // Uncomment after running `npm run build` in the project root.
-    // Files are deployed under the aws/ prefix so CloudFront serves them at /aws/*.
-    //
-    // new s3deploy.BucketDeployment(this, 'DeployFrontend', {
-    //   sources: [s3deploy.Source.asset(path.join(__dirname, '../../dist'))],
-    //   destinationBucket: bucket,
-    //   destinationKeyPrefix: 'aws',
-    // })
+
+    new s3deploy.BucketDeployment(this, 'DeployFrontend', {
+      sources: [s3deploy.Source.asset(path.join(__dirname, '../../dist'))],
+      destinationBucket: bucket,
+      destinationKeyPrefix: 'aws',
+    })
 
     // ── Outputs ───────────────────────────────────────────────────────────────
 
@@ -349,6 +337,6 @@ export class CertpathStack extends cdk.Stack {
     new cdk.CfnOutput(this, 'UserPoolClientId', { value: userPoolClient.userPoolClientId })
     new cdk.CfnOutput(this, 'CognitoDomain',    { value: `${userPoolDomain.domainName}.auth.${this.region}.amazoncognito.com` })
     new cdk.CfnOutput(this, 'StateMachineArn',  { value: stateMachine.stateMachineArn })
-    new cdk.CfnOutput(this, 'FrontendBucket',   { value: bucket.bucketName })
+    new cdk.CfnOutput(this, 'FrontendBucketName', { value: bucket.bucketName })
   }
 }

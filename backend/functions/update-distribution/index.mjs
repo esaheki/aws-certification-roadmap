@@ -114,6 +114,7 @@ async function upsertBehavior(distId, bucketDomain, oacId, fnArn) {
     ViewerProtocolPolicy: 'redirect-to-https',
     CachePolicyId: CACHE_POLICY_ID,
     Compress: true,
+    SmoothStreaming: false,
     FunctionAssociations: {
       Quantity: 1,
       Items: [{ FunctionARN: fnArn, EventType: 'viewer-request' }],
@@ -127,7 +128,6 @@ async function upsertBehavior(distId, bucketDomain, oacId, fnArn) {
     TrustedSigners: { Enabled: false, Quantity: 0, Items: [] },
     TrustedKeyGroups: { Enabled: false, Quantity: 0, Items: [] },
     FieldLevelEncryptionId: '',
-    MinTTL: 0,
   })
   cfg.CacheBehaviors.Quantity = cfg.CacheBehaviors.Items.length
 

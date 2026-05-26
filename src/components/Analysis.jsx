@@ -41,7 +41,7 @@ export default function Analysis({ analysis, loading, currentStep, error, aTab, 
           <div style={{ display: 'flex', gap: 0, borderBottom: '1px solid rgba(255,255,255,0.07)', marginBottom: 36 }}>
             {tabs.map(([id, label]) => (
               <button key={id} className="tab-btn" onClick={() => setATab(id)}
-                style={{ padding: '10px 22px', fontSize: 13, fontWeight: aTab === id ? 600 : 400, color: aTab === id ? '#ff9900' : '#4b5563', borderBottom: `2px solid ${aTab === id ? '#ff9900' : 'transparent'}`, marginBottom: -1, background: 'none', border: 'none', borderBottom: `2px solid ${aTab === id ? '#ff9900' : 'transparent'}`, cursor: 'pointer', fontFamily: "'IBM Plex Sans', sans-serif" }}>
+                style={{ padding: '10px 22px', fontSize: 13, fontWeight: aTab === id ? 600 : 400, color: aTab === id ? '#ff9900' : '#4b5563', marginBottom: -1, background: 'none', border: 'none', borderBottom: `2px solid ${aTab === id ? '#ff9900' : 'transparent'}`, cursor: 'pointer', fontFamily: "'IBM Plex Sans', sans-serif" }}>
                 {label}
               </button>
             ))}
