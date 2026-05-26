@@ -1,21 +1,26 @@
 export const CERTIFICATIONS = [
-  { id: 'ccp', name: 'Cloud Practitioner',        level: 'Foundational', code: 'CLF-C02' },
-  { id: 'saa', name: 'Solutions Architect',        level: 'Associate',    code: 'SAA-C03' },
-  { id: 'dva', name: 'Developer',                  level: 'Associate',    code: 'DVA-C02' },
-  { id: 'soa', name: 'SysOps Administrator',       level: 'Associate',    code: 'SOA-C02' },
-  { id: 'sap', name: 'Solutions Architect Pro',    level: 'Professional', code: 'SAP-C02' },
-  { id: 'dop', name: 'DevOps Engineer Pro',        level: 'Professional', code: 'DOP-C02' },
-  { id: 'ans', name: 'Advanced Networking',        level: 'Specialty',    code: 'ANS-C01' },
-  { id: 'dbs', name: 'Database',                   level: 'Specialty',    code: 'DBS-C01' },
-  { id: 'das', name: 'Data Analytics',             level: 'Specialty',    code: 'DAS-C01' },
-  { id: 'scs', name: 'Security',                   level: 'Specialty',    code: 'SCS-C02' },
-  { id: 'mls', name: 'Machine Learning',           level: 'Specialty',    code: 'MLS-C01' },
+  // Foundational
+  { id: 'ccp', name: 'Cloud Practitioner',          level: 'Foundational', code: 'CLF-C02' },
+  { id: 'aif', name: 'AI Practitioner',             level: 'Foundational', code: 'AIF-C01' },
+  // Associate
+  { id: 'saa', name: 'Solutions Architect',          level: 'Associate',    code: 'SAA-C03' },
+  { id: 'dva', name: 'Developer',                    level: 'Associate',    code: 'DVA-C02' },
+  { id: 'soa', name: 'CloudOps Engineer',            level: 'Associate',    code: 'SOA-C03' },
+  { id: 'dea', name: 'Data Engineer',                level: 'Associate',    code: 'DEA-C01' },
+  { id: 'mla', name: 'Machine Learning Engineer',    level: 'Associate',    code: 'MLA-C01' },
+  // Professional
+  { id: 'sap', name: 'Solutions Architect Pro',      level: 'Professional', code: 'SAP-C02' },
+  { id: 'dop', name: 'DevOps Engineer Pro',          level: 'Professional', code: 'DOP-C02' },
+  { id: 'aip', name: 'Generative AI Developer Pro',  level: 'Professional', code: 'AIP-C01' },
+  // Specialty
+  { id: 'ans', name: 'Advanced Networking',          level: 'Specialty',    code: 'ANS-C01' },
+  { id: 'scs', name: 'Security',                     level: 'Specialty',    code: 'SCS-C02' },
 ]
 
 export const CERT_LEVEL_STYLES = {
-  Foundational: { ring: '#818cf8', glow: '99,102,241',   tag: '#6366f1' },
-  Associate:    { ring: '#4ade80', glow: '34,197,94',    tag: '#16a34a' },
-  Professional: { ring: '#fb923c', glow: '249,115,22',   tag: '#ea580c' },
+  Foundational: { ring: '#94a3b8', glow: '148,163,184',  tag: '#64748b' },
+  Associate:    { ring: '#60a5fa', glow: '96,165,250',   tag: '#3b82f6' },
+  Professional: { ring: '#2dd4bf', glow: '45,212,191',   tag: '#0d9488' },
   Specialty:    { ring: '#c084fc', glow: '192,132,252',  tag: '#9333ea' },
 }
 

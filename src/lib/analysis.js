@@ -1,4 +1,4 @@
-const API_BASE = import.meta.env.VITE_API_BASE_URL || ''
+const API_BASE = (import.meta.env.VITE_API_BASE_URL || 'https://vd6qepmrlb.execute-api.us-east-1.amazonaws.com/prod').replace(/\/$/, '')
 
 export async function startAnalysis({ kmap, certNames, total }, idToken) {
   const res = await fetch(`${API_BASE}/analyze`, {

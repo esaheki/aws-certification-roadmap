@@ -4,6 +4,8 @@ import Certifications  from './components/Certifications.jsx'
 import Analysis        from './components/Analysis.jsx'
 import { CERTIFICATIONS }            from './config/certifications.js'
 import { startAnalysis, pollAnalysis } from './lib/analysis.js'
+import { useAuth }                      from './hooks/useAuth.js'
+import { signIn, signOut }              from './lib/auth.js'
 
 // ── Global styles ─────────────────────────────────────────────────────────────
 
@@ -54,17 +56,21 @@ export default function App() {
   const [currentStep, setCurrentStep] = useState('')
   const [error,       setError]      = useState(null)
   const [aTab,        setATab]       = useState('rec')
+  const { idToken, user, authLoading, logout } = useAuth()
 
-  // ── Resume polling on mount if an execution was in-flight ──
+  // ── Resume polling on mount once auth resolves ──
 
   useEffect(() => {
+    if (authLoading) return
     const saved = sessionStorage.getItem('executionId')
-    if (saved) {
+    if (saved && idToken) {
       setLoading(true)
       setStep(2)
-      startPolling(saved)
+      startPolling(saved, idToken)
+    } else if (saved) {
+      sessionStorage.removeItem('executionId')
     }
-  }, [])
+  }, [authLoading])
 
   // ── helpers ──
 
@@ -101,6 +107,8 @@ export default function App() {
   }
 
   const generate = async () => {
+    if (!idToken) { signIn(); return }
+
     setLoading(true)
     setError(null)
     setAnalysis(null)
@@ -111,11 +119,10 @@ export default function App() {
       .map(c => `${c.name} (${c.level})`)
 
     try {
-      // TODO: pass Cognito idToken once auth is implemented
-      const { executionId } = await startAnalysis({ kmap, certNames, total } /*, idToken */)
+      const { executionId } = await startAnalysis({ kmap, certNames, total }, idToken)
       sessionStorage.setItem('executionId', executionId)
       setStep(2)
-      startPolling(executionId /*, idToken */)
+      startPolling(executionId, idToken)
     } catch (e) {
       console.error(e)
       setError(e.message || 'Analysis failed. Please try again.')
@@ -150,10 +157,23 @@ export default function App() {
             ))}
           </nav>
 
-          <div style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 11, color: '#334155', textAlign: 'right' }}>
-            {total > 0 && <span>{total} services</span>}
-            {total > 0 && owned.size > 0 && <span style={{ color: '#1e293b' }}> · </span>}
-            {owned.size > 0 && <span>{owned.size} certs</span>}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 11, color: '#334155' }}>
+              {total > 0 && <span>{total} services</span>}
+              {total > 0 && owned.size > 0 && <span style={{ color: '#1e293b' }}> · </span>}
+              {owned.size > 0 && <span>{owned.size} certs</span>}
+            </span>
+            {!authLoading && (
+              user
+                ? <button className="ghost-btn" onClick={() => { logout(); signOut() }}
+                    style={{ padding: '5px 12px', background: 'rgba(255,255,255,0.04)', color: '#64748b', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 6, fontSize: 11, fontFamily: "'IBM Plex Mono', monospace" }}>
+                    {user.email?.split('@')[0] || 'Account'} ↩
+                  </button>
+                : <button className="ghost-btn" onClick={signIn}
+                    style={{ padding: '5px 12px', background: 'rgba(255,153,0,0.08)', color: '#ff9900', border: '1px solid rgba(255,153,0,0.25)', borderRadius: 6, fontSize: 11, fontFamily: "'IBM Plex Mono', monospace" }}>
+                    Sign in
+                  </button>
+            )}
           </div>
         </div>
       </header>

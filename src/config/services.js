@@ -17,7 +17,7 @@ export const SERVICES = {
 
 export const PROFICIENCY_LEVELS = [
   { label: 'None',         bg: 'rgba(15,23,42,0.6)',    text: '#334155', border: 'rgba(255,255,255,0.06)', dot: ''    },
-  { label: 'Basic',        bg: 'rgba(30,58,138,0.25)',  text: '#93c5fd', border: 'rgba(59,130,246,0.35)', dot: '●'   },
-  { label: 'Intermediate', bg: 'rgba(120,53,15,0.3)',   text: '#fcd34d', border: 'rgba(217,119,6,0.4)',   dot: '●●'  },
-  { label: 'Advanced',     bg: 'rgba(124,45,18,0.35)',  text: '#fb923c', border: 'rgba(234,88,12,0.55)',  dot: '●●●' },
+  { label: 'Basic',        bg: 'rgba(148,163,184,0.12)', text: '#94a3b8', border: 'rgba(148,163,184,0.3)',  dot: '●'   },
+  { label: 'Intermediate', bg: 'rgba(96,165,250,0.12)',  text: '#60a5fa', border: 'rgba(96,165,250,0.35)',  dot: '●●'  },
+  { label: 'Advanced',     bg: 'rgba(45,212,191,0.12)',  text: '#2dd4bf', border: 'rgba(45,212,191,0.4)',   dot: '●●●' },
 ]
