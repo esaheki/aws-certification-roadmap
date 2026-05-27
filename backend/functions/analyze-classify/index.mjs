@@ -5,17 +5,18 @@ const bedrock = new BedrockRuntimeClient({ region: 'us-east-1' })
 const ddb = new DynamoDBClient({})
 const MODEL = 'us.anthropic.claude-haiku-4-5-20251001-v1:0'
 
-// AWS-recommended certification paths by role (based on AWS Certification Paths guide)
+// AWS-recommended certification paths by role (source: AWS Certification Paths guide 2025)
+// aiRecommended: certs AWS suggests alongside the main path for AI literacy
 const ROLE_PATHS = {
-  'cloud-architect':    { label: 'Cloud Architect',     path: ['CLF-C02', 'SAA-C03', 'SAP-C02'] },
-  'developer':          { label: 'Developer',           path: ['CLF-C02', 'DVA-C02', 'DOP-C02'] },
-  'devops':             { label: 'DevOps / CloudOps',   path: ['CLF-C02', 'SOA-C03', 'DVA-C02', 'DOP-C02'] },
-  'data-engineer':      { label: 'Data Engineer',       path: ['CLF-C02', 'DEA-C01'] },
-  'ml-engineer':        { label: 'ML / AI Engineer',    path: ['AIF-C01', 'MLA-C01'] },
-  'security':           { label: 'Security Engineer',   path: ['CLF-C02', 'SAA-C03', 'SCS-C02'] },
-  'networking':         { label: 'Network Engineer',    path: ['CLF-C02', 'SAA-C03', 'ANS-C01'] },
-  'generative-ai':      { label: 'GenAI Developer',     path: ['AIF-C01', 'MLA-C01', 'AIP-C01'] },
-  'cloud-practitioner': { label: 'Cloud Generalist',    path: ['CLF-C02', 'SAA-C03'] },
+  'cloud-architect':    { label: 'Cloud Architect',     path: ['CLF-C02', 'SAA-C03', 'SAP-C02'],              aiRecommended: ['AIF-C01'] },
+  'developer':          { label: 'Developer',           path: ['CLF-C02', 'DVA-C02', 'DOP-C02'],              aiRecommended: ['AIF-C01'] },
+  'devops':             { label: 'DevOps / CloudOps',   path: ['CLF-C02', 'SOA-C03', 'DVA-C02', 'DOP-C02'],  aiRecommended: ['MLA-C01'] },
+  'data-engineer':      { label: 'Data Engineer',       path: ['CLF-C02', 'DEA-C01'],                         aiRecommended: ['AIF-C01', 'MLA-C01'] },
+  'ml-engineer':        { label: 'ML / AI Engineer',    path: ['AIF-C01', 'MLA-C01'],                         aiRecommended: [] },
+  'security':           { label: 'Security Engineer',   path: ['CLF-C02', 'SAA-C03', 'SCS-C02'],              aiRecommended: ['AIF-C01'] },
+  'networking':         { label: 'Network Engineer',    path: ['CLF-C02', 'SAA-C03', 'ANS-C01'],              aiRecommended: [] },
+  'generative-ai':      { label: 'GenAI Developer',     path: ['AIF-C01', 'MLA-C01', 'AIP-C01'],             aiRecommended: [] },
+  'cloud-practitioner': { label: 'Cloud Generalist',    path: ['CLF-C02', 'SAA-C03'],                         aiRecommended: ['AIF-C01'] },
 }
 
 const CERTS = [
@@ -65,9 +66,16 @@ export const handler = async (event) => {
     .join('\n')
 
   const roleInfo = role && ROLE_PATHS[role]
-    ? `- Target role: ${ROLE_PATHS[role].label}
-- AWS-recommended cert path for this role: ${ROLE_PATHS[role].path.join(' → ')}
-- Prioritize the NEXT uncompleted cert in this path unless knowledge level suggests otherwise.`
+    ? (() => {
+        const rp = ROLE_PATHS[role]
+        const aiLine = rp.aiRecommended.length
+          ? `- AWS also recommends ${rp.aiRecommended.join(' or ')} alongside this path for AI literacy.`
+          : ''
+        return `- Target role: ${rp.label}
+- AWS-recommended cert path for this role: ${rp.path.join(' → ')}
+${aiLine}
+- Prioritize the NEXT uncompleted cert in this path. If the learner already holds all path certs, suggest an AI-recommended cert or the most relevant specialty.`
+      })()
     : '- No specific role selected — use knowledge level and held certs to decide.'
 
   const res = await bedrock.send(new ConverseCommand({

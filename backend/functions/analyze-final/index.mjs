@@ -6,15 +6,15 @@ const ddb = new DynamoDBClient({})
 const MODEL = 'us.anthropic.claude-sonnet-4-6'
 
 const ROLE_PATHS = {
-  'cloud-architect':    { label: 'Cloud Architect',     path: ['CLF-C02', 'SAA-C03', 'SAP-C02'] },
-  'developer':          { label: 'Developer',           path: ['CLF-C02', 'DVA-C02', 'DOP-C02'] },
-  'devops':             { label: 'DevOps / CloudOps',   path: ['CLF-C02', 'SOA-C03', 'DVA-C02', 'DOP-C02'] },
-  'data-engineer':      { label: 'Data Engineer',       path: ['CLF-C02', 'DEA-C01'] },
-  'ml-engineer':        { label: 'ML / AI Engineer',    path: ['AIF-C01', 'MLA-C01'] },
-  'security':           { label: 'Security Engineer',   path: ['CLF-C02', 'SAA-C03', 'SCS-C02'] },
-  'networking':         { label: 'Network Engineer',    path: ['CLF-C02', 'SAA-C03', 'ANS-C01'] },
-  'generative-ai':      { label: 'GenAI Developer',     path: ['AIF-C01', 'MLA-C01', 'AIP-C01'] },
-  'cloud-practitioner': { label: 'Cloud Generalist',    path: ['CLF-C02', 'SAA-C03'] },
+  'cloud-architect':    { label: 'Cloud Architect',     path: ['CLF-C02', 'SAA-C03', 'SAP-C02'],              aiRecommended: ['AIF-C01'] },
+  'developer':          { label: 'Developer',           path: ['CLF-C02', 'DVA-C02', 'DOP-C02'],              aiRecommended: ['AIF-C01'] },
+  'devops':             { label: 'DevOps / CloudOps',   path: ['CLF-C02', 'SOA-C03', 'DVA-C02', 'DOP-C02'],  aiRecommended: ['MLA-C01'] },
+  'data-engineer':      { label: 'Data Engineer',       path: ['CLF-C02', 'DEA-C01'],                         aiRecommended: ['AIF-C01', 'MLA-C01'] },
+  'ml-engineer':        { label: 'ML / AI Engineer',    path: ['AIF-C01', 'MLA-C01'],                         aiRecommended: [] },
+  'security':           { label: 'Security Engineer',   path: ['CLF-C02', 'SAA-C03', 'SCS-C02'],              aiRecommended: ['AIF-C01'] },
+  'networking':         { label: 'Network Engineer',    path: ['CLF-C02', 'SAA-C03', 'ANS-C01'],              aiRecommended: [] },
+  'generative-ai':      { label: 'GenAI Developer',     path: ['AIF-C01', 'MLA-C01', 'AIP-C01'],             aiRecommended: [] },
+  'cloud-practitioner': { label: 'Cloud Generalist',    path: ['CLF-C02', 'SAA-C03'],                         aiRecommended: ['AIF-C01'] },
 }
 
 export const handler = async (event) => {
@@ -41,7 +41,13 @@ export const handler = async (event) => {
   const cStr = (certNames || []).length ? certNames.join(', ') : 'None'
 
   const roleCtx = role && ROLE_PATHS[role]
-    ? `\n\nLearner's target role: ${ROLE_PATHS[role].label}\nAWS certification path for this role: ${ROLE_PATHS[role].path.join(' → ')}\nTailor the roadmap, projects, and gap analysis to skills needed for this role.`
+    ? (() => {
+        const rp = ROLE_PATHS[role]
+        const aiLine = rp.aiRecommended.length
+          ? ` AWS also recommends ${rp.aiRecommended.join(' and ')} for AI literacy in this role.`
+          : ''
+        return `\n\nLearner's target role: ${rp.label}\nAWS certification path for this role: ${rp.path.join(' → ')}.${aiLine}\nTailor the roadmap, projects, and gap analysis to skills needed for this role.`
+      })()
     : ''
 
   const systemText = enriched
