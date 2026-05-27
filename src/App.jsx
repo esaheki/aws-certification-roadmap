@@ -115,17 +115,24 @@ export default function App() {
     }, 2000)
   }, [kmap, owned, role, idToken])
 
-  // ── Resume polling on mount once auth resolves ──
+  // ── Resume polling / restore step on mount once auth resolves ──
 
   useEffect(() => {
     if (authLoading) return
-    const saved = sessionStorage.getItem('executionId')
-    if (saved && idToken) {
+    const savedExecution = sessionStorage.getItem('executionId')
+    const postAuthStep   = sessionStorage.getItem('certpath-post-auth-step')
+
+    if (savedExecution && idToken) {
       setLoading(true)
       setStep(2)
-      startPolling(saved, idToken)
-    } else if (saved) {
+      startPolling(savedExecution, idToken)
+    } else if (savedExecution) {
       sessionStorage.removeItem('executionId')
+    }
+
+    if (postAuthStep && idToken) {
+      sessionStorage.removeItem('certpath-post-auth-step')
+      setStep(parseInt(postAuthStep, 10))
     }
   }, [authLoading])
 
@@ -164,7 +171,7 @@ export default function App() {
   }
 
   const generate = async () => {
-    if (!idToken) { signIn(); return }
+    if (!idToken) { sessionStorage.setItem('certpath-post-auth-step', String(step)); signIn(); return }
 
     setLoading(true)
     setError(null)
