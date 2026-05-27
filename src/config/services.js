@@ -1,18 +1,14 @@
-/**
- * AWS services organised by category.
- * Each value maps to a proficiency level: 0=None, 1=Basic, 2=Intermediate, 3=Advanced
- */
 export const SERVICES = {
-  'Compute':           ['EC2','Lambda','ECS','EKS','Fargate','Elastic Beanstalk','Batch','Lightsail'],
-  'Storage':           ['S3','EBS','EFS','FSx','S3 Glacier','Storage Gateway','Backup'],
-  'Database':          ['RDS','Aurora','DynamoDB','ElastiCache','Redshift','DocumentDB','Neptune'],
-  'Networking':        ['VPC','Route 53','CloudFront','API Gateway','ELB/ALB/NLB','Direct Connect','Transit Gateway'],
-  'Security & IAM':    ['IAM','Cognito','KMS','WAF','Shield','GuardDuty','Security Hub','Inspector','Secrets Manager'],
-  'ML & AI':           ['SageMaker','Bedrock','Rekognition','Comprehend','Textract','Polly','Lex','Translate'],
-  'DevOps & IaC':      ['CodePipeline','CodeBuild','CodeDeploy','CodeCommit','CloudFormation','CDK','Systems Manager','SAM'],
-  'Monitoring & Ops':  ['CloudWatch','CloudTrail','X-Ray','Config','Trusted Advisor','Health Dashboard','EventBridge'],
-  'Messaging':         ['SQS','SNS','EventBridge','Step Functions','Kinesis','MSK','MQ'],
-  'Analytics':         ['Athena','Glue','EMR','QuickSight','Lake Formation','Data Firehose','OpenSearch'],
+  'Compute':           ['EC2', 'EC2 Auto Scaling', 'Lambda', 'ECS', 'EKS', 'Fargate', 'App Runner', 'Elastic Beanstalk', 'Batch', 'Lightsail', 'Outposts'],
+  'Storage':           ['S3', 'EBS', 'EFS', 'FSx', 'S3 Glacier', 'Storage Gateway', 'Snow Family', 'DataSync', 'Transfer Family', 'Backup'],
+  'Database':          ['RDS', 'Aurora', 'DynamoDB', 'ElastiCache', 'MemoryDB', 'Redshift', 'DocumentDB', 'Neptune', 'Timestream', 'QLDB', 'Keyspaces'],
+  'Networking':        ['VPC', 'Route 53', 'CloudFront', 'API Gateway', 'ELB/ALB/NLB', 'Global Accelerator', 'PrivateLink', 'Direct Connect', 'Site-to-Site VPN', 'Transit Gateway', 'Network Firewall'],
+  'Security & IAM':    ['IAM', 'Organizations', 'IAM Identity Center', 'Cognito', 'KMS', 'CloudHSM', 'ACM', 'Secrets Manager', 'WAF', 'Shield', 'Macie', 'GuardDuty', 'Security Hub', 'Inspector', 'RAM'],
+  'ML & AI':           ['SageMaker', 'Bedrock', 'Rekognition', 'Comprehend', 'Textract', 'Transcribe', 'Polly', 'Translate', 'Lex', 'Forecast', 'Personalize', 'Kendra'],
+  'DevOps & IaC':      ['CodePipeline', 'CodeBuild', 'CodeDeploy', 'CodeCommit', 'CodeArtifact', 'CodeGuru', 'ECR', 'CloudFormation', 'CDK', 'SAM', 'Amplify', 'Systems Manager', 'AppConfig'],
+  'Monitoring & Ops':  ['CloudWatch', 'CloudTrail', 'X-Ray', 'Config', 'Cost Explorer', 'Budgets', 'Compute Optimizer', 'Trusted Advisor', 'Health Dashboard', 'Service Catalog'],
+  'Messaging & Events':['SQS', 'SNS', 'EventBridge', 'Step Functions', 'AppSync', 'Kinesis', 'MSK', 'MQ', 'IoT Core'],
+  'Analytics':         ['Athena', 'Glue', 'EMR', 'QuickSight', 'Lake Formation', 'Data Firehose', 'OpenSearch', 'Clean Rooms', 'DMS'],
 }
 
 export const PROFICIENCY_LEVELS = [
