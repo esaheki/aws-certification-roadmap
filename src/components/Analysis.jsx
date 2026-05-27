@@ -108,7 +108,7 @@ export default function Analysis({ analysis, loading, currentStep, error, aTab, 
                 <div className="rec-inner" style={{ display: 'flex', gap: 32, alignItems: 'flex-start', flexWrap: 'wrap' }}>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 10, color: '#ff9900', letterSpacing: '0.18em', marginBottom: 10 }}>RECOMMENDED NEXT CERTIFICATION</div>
-                    <h2 style={{ fontFamily: "'Outfit', sans-serif", fontWeight: 900, fontSize: 28, color: '#fff', marginBottom: 5, lineHeight: 1.2 }}>AWS {analysis.rec.cert}</h2>
+                    <h2 style={{ fontFamily: "'Outfit', sans-serif", fontWeight: 900, fontSize: 28, color: '#fff', marginBottom: 5, lineHeight: 1.2 }}>{analysis.rec.cert}</h2>
                     <div style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 12, color: '#334155', marginBottom: 18 }}>{analysis.rec.code} &nbsp;·&nbsp; {analysis.rec.level}</div>
                     <p style={{ color: '#94a3b8', fontSize: 14, lineHeight: 1.8 }}>{analysis.rec.why}</p>
                     {analysis.metadata?.enriched && (
@@ -168,7 +168,7 @@ export default function Analysis({ analysis, loading, currentStep, error, aTab, 
           {aTab === 'roadmap' && (
             <div className="fade-in">
               <h2 style={{ fontFamily: "'Outfit', sans-serif", fontWeight: 800, fontSize: 22, marginBottom: 6 }}>Study Roadmap</h2>
-              <p style={{ color: '#475569', fontSize: 13, marginBottom: 32 }}>Your phased plan to reach AWS {analysis.rec?.cert}:</p>
+              <p style={{ color: '#475569', fontSize: 13, marginBottom: 32 }}>Your phased plan to reach {analysis.rec?.cert}:</p>
               <div style={{ display: 'flex', flexDirection: 'column' }}>
                 {(analysis.roadmap || []).map((ph, i) => (
                   <div key={i} style={{ display: 'flex', gap: 20, paddingBottom: i < analysis.roadmap.length - 1 ? 36 : 0 }}>
