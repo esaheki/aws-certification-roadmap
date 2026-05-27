@@ -275,6 +275,42 @@ export class CertpathStack extends cdk.Stack {
       authorizationType: apigw.AuthorizationType.COGNITO,
     })
 
+    // ── Lambda: profile-get ──────────────────────────────────────────────────
+
+    const profileGetFn = new lambda.Function(this, 'ProfileGet', {
+      functionName: 'certpath-profile-get',
+      runtime: lambda.Runtime.NODEJS_20_X,
+      handler: 'index.handler',
+      code: lambda.Code.fromAsset(path.join(__dirname, '../../backend/functions/profile-get')),
+      timeout: cdk.Duration.seconds(15),
+      memorySize: 256,
+      environment: { PROFILES_TABLE: profilesTable.tableName },
+    })
+    profilesTable.grantReadData(profileGetFn)
+
+    // ── Lambda: profile-save ─────────────────────────────────────────────────
+
+    const profileSaveFn = new lambda.Function(this, 'ProfileSave', {
+      functionName: 'certpath-profile-save',
+      runtime: lambda.Runtime.NODEJS_20_X,
+      handler: 'index.handler',
+      code: lambda.Code.fromAsset(path.join(__dirname, '../../backend/functions/profile-save')),
+      timeout: cdk.Duration.seconds(15),
+      memorySize: 256,
+      environment: { PROFILES_TABLE: profilesTable.tableName },
+    })
+    profilesTable.grantWriteData(profileSaveFn)
+
+    const profileRoute = api.root.addResource('profile')
+    profileRoute.addMethod('GET', new apigw.LambdaIntegration(profileGetFn), {
+      authorizer,
+      authorizationType: apigw.AuthorizationType.COGNITO,
+    })
+    profileRoute.addMethod('POST', new apigw.LambdaIntegration(profileSaveFn), {
+      authorizer,
+      authorizationType: apigw.AuthorizationType.COGNITO,
+    })
+
     // ── S3: frontend static hosting ───────────────────────────────────────────
 
     const bucket = new s3.Bucket(this, 'FrontendBucket', {

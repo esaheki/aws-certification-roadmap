@@ -1,9 +1,9 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import KnowledgeMap    from './components/KnowledgeMap.jsx'
 import Certifications  from './components/Certifications.jsx'
 import Analysis        from './components/Analysis.jsx'
 import { CERTIFICATIONS }            from './config/certifications.js'
-import { startAnalysis, pollAnalysis } from './lib/analysis.js'
+import { startAnalysis, pollAnalysis, getProfile, saveProfile } from './lib/analysis.js'
 import { useAuth }                      from './hooks/useAuth.js'
 import { signIn, signOut }              from './lib/auth.js'
 
@@ -62,12 +62,43 @@ export default function App() {
   const [error,       setError]      = useState(null)
   const [aTab,        setATab]       = useState('rec')
   const { idToken, user, authLoading, logout } = useAuth()
+  const saveTimer = useRef(null)
 
   // ── Persist kmap + owned to localStorage ──
 
   useEffect(() => { localStorage.setItem('certpath-kmap', JSON.stringify(kmap)) }, [kmap])
   useEffect(() => { localStorage.setItem('certpath-owned', JSON.stringify([...owned])) }, [owned])
   useEffect(() => { role ? localStorage.setItem('certpath-role', role) : localStorage.removeItem('certpath-role') }, [role])
+
+  // ── Load profile from DynamoDB once auth resolves ──
+
+  useEffect(() => {
+    if (authLoading || !idToken) return
+    getProfile(idToken).then(({ kmap: k, owned: o, role: r }) => {
+      if (k && Object.keys(k).length) {
+        setKmap(k)
+        localStorage.setItem('certpath-kmap', JSON.stringify(k))
+      }
+      if (o && o.length) {
+        setOwned(new Set(o))
+        localStorage.setItem('certpath-owned', JSON.stringify(o))
+      }
+      if (r) {
+        setRole(r)
+        localStorage.setItem('certpath-role', r)
+      }
+    }).catch(e => console.warn('Profile load failed:', e.message))
+  }, [authLoading, idToken])
+
+  // ── Debounce-save profile to DynamoDB on changes ──
+
+  useEffect(() => {
+    if (!idToken) return
+    clearTimeout(saveTimer.current)
+    saveTimer.current = setTimeout(() => {
+      saveProfile({ kmap, owned, role }, idToken).catch(e => console.warn('Profile save failed:', e.message))
+    }, 2000)
+  }, [kmap, owned, role, idToken])
 
   // ── Resume polling on mount once auth resolves ──
 

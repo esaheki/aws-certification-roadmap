@@ -20,3 +20,23 @@ export async function pollAnalysis(executionId, idToken) {
   if (!res.ok) throw new Error(`Poll error ${res.status}`)
   return res.json()
 }
+
+export async function getProfile(idToken) {
+  const res = await fetch(`${API_BASE}/profile`, {
+    headers: { ...(idToken && { Authorization: idToken }) },
+  })
+  if (!res.ok) throw new Error(`Profile fetch error ${res.status}`)
+  return res.json()
+}
+
+export async function saveProfile({ kmap, owned, role }, idToken) {
+  const res = await fetch(`${API_BASE}/profile`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      ...(idToken && { Authorization: idToken }),
+    },
+    body: JSON.stringify({ kmap, owned: [...owned], role }),
+  })
+  if (!res.ok) throw new Error(`Profile save error ${res.status}`)
+}
