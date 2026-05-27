@@ -219,7 +219,19 @@ export default function App() {
       <header style={{ position: 'sticky', top: 0, zIndex: 200, background: 'rgba(6,11,24,0.92)', backdropFilter: 'blur(16px)', borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
         <div className="header-inner" style={{ maxWidth: 1120, margin: '0 auto', padding: '0 24px', height: 60, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <div style={{ width: 34, height: 34, background: 'linear-gradient(135deg,#ff9900 0%,#ff5500 100%)', borderRadius: 9, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 17, boxShadow: '0 0 18px rgba(255,153,0,0.35)' }}>☁</div>
+            <svg width="34" height="34" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" style={{ borderRadius: 9, boxShadow: '0 0 18px rgba(255,153,0,0.35)', flexShrink: 0 }}>
+                <defs>
+                  <linearGradient id="cpGrad" x1="0" y1="0" x2="100" y2="100" gradientUnits="userSpaceOnUse">
+                    <stop stopColor="#FF9900"/>
+                    <stop offset="1" stopColor="#DD4000"/>
+                  </linearGradient>
+                </defs>
+                <rect width="100" height="100" rx="22" fill="url(#cpGrad)"/>
+                <path d="M28 72 C40 72 40 50 50 50 C60 50 60 24 72 24" stroke="white" strokeWidth="8" strokeLinecap="round" fill="none" opacity="0.88"/>
+                <circle cx="28" cy="72" r="11" fill="white"/>
+                <circle cx="50" cy="50" r="11" fill="white"/>
+                <circle cx="72" cy="24" r="11" fill="white"/>
+              </svg>
             <div>
               <div style={{ fontFamily: "'Outfit', sans-serif", fontWeight: 900, fontSize: 15, color: '#ff9900', letterSpacing: '0.1em', lineHeight: 1 }}>CERTPATH</div>
               <div style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 9, color: '#334155', letterSpacing: '0.25em', marginTop: 1 }}>AWS · AI-POWERED</div>
