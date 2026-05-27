@@ -67,7 +67,6 @@ const CSS = `
       pointer-events: none;
       z-index: 1;
     }
-    .rec-inner { flex-direction: column !important; }
   }
   @media (max-width: 480px) {
     .header-inner  { padding: 0 12px !important; }

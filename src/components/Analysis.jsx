@@ -105,30 +105,32 @@ export default function Analysis({ analysis, loading, currentStep, error, aTab, 
           {aTab === 'rec' && (
             <div className="fade-in">
               <div style={{ background: 'rgba(255,153,0,0.05)', border: '1px solid rgba(255,153,0,0.22)', borderRadius: 14, padding: 'clamp(20px,4vw,36px)', marginBottom: 24, boxShadow: '0 0 0 1px rgba(255,153,0,0.25), 0 4px 24px rgba(255,153,0,0.12)' }}>
-                <div className="rec-inner" style={{ display: 'flex', gap: 32, alignItems: 'flex-start', flexWrap: 'wrap' }}>
+                {/* Cert name + readiness — always side by side */}
+                <div style={{ display: 'flex', gap: 20, alignItems: 'flex-start', marginBottom: 20 }}>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 10, color: '#ff9900', letterSpacing: '0.18em', marginBottom: 10 }}>RECOMMENDED NEXT CERTIFICATION</div>
-                    <h2 style={{ fontFamily: "'Outfit', sans-serif", fontWeight: 900, fontSize: 28, color: '#fff', marginBottom: 5, lineHeight: 1.2 }}>{analysis.rec.cert}</h2>
-                    <div style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 12, color: '#334155', marginBottom: 18 }}>{analysis.rec.code} &nbsp;·&nbsp; {analysis.rec.level}</div>
-                    <p style={{ color: '#94a3b8', fontSize: 14, lineHeight: 1.8 }}>{analysis.rec.why}</p>
-                    {analysis.metadata?.enriched && (
-                      <div style={{ marginTop: 16, display: 'inline-flex', alignItems: 'center', gap: 6, background: 'rgba(34,197,94,0.08)', border: '1px solid rgba(34,197,94,0.2)', borderRadius: 6, padding: '5px 12px' }}>
-                        <span style={{ fontSize: 11 }}>✓</span>
-                        <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 10, color: '#4ade80', letterSpacing: '0.1em' }}>Based on official AWS exam guide</span>
-                      </div>
-                    )}
+                    <h2 style={{ fontFamily: "'Outfit', sans-serif", fontWeight: 900, fontSize: 'clamp(20px,5vw,28px)', color: '#fff', marginBottom: 5, lineHeight: 1.2 }}>{analysis.rec.cert}</h2>
+                    <div style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 12, color: '#334155' }}>{analysis.rec.code} &nbsp;·&nbsp; {analysis.rec.level}</div>
                   </div>
-                  <div style={{ textAlign: 'center', minWidth: 130, padding: '8px 0' }}>
-                    <div style={{ fontFamily: "'Outfit', sans-serif", fontWeight: 900, fontSize: 52, color: '#ff9900', lineHeight: 1 }}>{analysis.rec.readiness}%</div>
+                  <div style={{ textAlign: 'center', flexShrink: 0, padding: '4px 0' }}>
+                    <div style={{ fontFamily: "'Outfit', sans-serif", fontWeight: 900, fontSize: 'clamp(36px,8vw,52px)', color: '#ff9900', lineHeight: 1 }}>{analysis.rec.readiness}%</div>
                     <div style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 9, color: '#334155', letterSpacing: '0.18em', marginBottom: 8 }}>READINESS</div>
-                    <div style={{ background: 'rgba(255,255,255,0.06)', borderRadius: 4, height: 5, overflow: 'hidden', width: 120, margin: '0 auto' }}>
+                    <div style={{ background: 'rgba(255,255,255,0.06)', borderRadius: 4, height: 5, overflow: 'hidden', width: 'clamp(72px,20vw,120px)', margin: '0 auto' }}>
                       <div style={{ height: '100%', width: `${analysis.rec.readiness}%`, background: 'linear-gradient(to right,#ff9900,#ff5500)', borderRadius: 4, transition: 'width 1s cubic-bezier(.16,1,.3,1)' }} />
                     </div>
-                    <div style={{ marginTop: 14, fontSize: 13, color: '#fbbf24', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5 }}>
+                    <div style={{ marginTop: 10, fontSize: 12, color: '#fbbf24', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}>
                       <span>⏱</span><span>{analysis.rec.timeline}</span>
                     </div>
                   </div>
                 </div>
+                {/* Explanation — full card width */}
+                <p style={{ color: '#94a3b8', fontSize: 14, lineHeight: 1.8 }}>{analysis.rec.why}</p>
+                {analysis.metadata?.enriched && (
+                  <div style={{ marginTop: 16, display: 'inline-flex', alignItems: 'center', gap: 6, background: 'rgba(34,197,94,0.08)', border: '1px solid rgba(34,197,94,0.2)', borderRadius: 6, padding: '5px 12px' }}>
+                    <span style={{ fontSize: 11 }}>✓</span>
+                    <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 10, color: '#4ade80', letterSpacing: '0.1em' }}>Based on official AWS exam guide</span>
+                  </div>
+                )}
               </div>
               <div className="rec-tips" style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 12 }}>
                 {[['📚','Study smart','Focus on the gaps tab — those are your highest-leverage topics.'],['🏗️','Build to learn','Hands-on projects beat flashcards. Check the Projects tab.'],['✅','Track progress','Re-analyze as you learn to watch your readiness score climb.']].map(([icon, title, body], i) => (
