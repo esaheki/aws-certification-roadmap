@@ -21,12 +21,12 @@ export default function Analysis({ analysis, loading, currentStep, error, aTab, 
   const actualIdx  = STEPS.indexOf(currentStep)
   const displayIdx = Math.max(autoIdx, actualIdx)
   const tabs = [
-    ['rec',      '🎯 Recommendation'],
-    ['gaps',     '⚠️ Gaps'],
-    ['roadmap',  '🗺 Roadmap'],
-    ['projects', '🔨 Projects'],
+    ['rec',        '🎯 Recommendation', '🎯 Rec'  ],
+    ['gaps',       '⚠️ Gaps',           '⚠️ Gaps' ],
+    ['roadmap',    '🗺 Roadmap',        '🗺 Map'  ],
+    ['projects',   '🔨 Projects',       '🔨 Build'],
   ]
-  if (analysis?.examDomains?.length) tabs.push(['examDomains', '📋 Exam Guide'])
+  if (analysis?.examDomains?.length) tabs.push(['examDomains', '📋 Exam Guide', '📋 Exam'])
 
   return (
     <div className="fade-in">
@@ -84,18 +84,21 @@ export default function Analysis({ analysis, loading, currentStep, error, aTab, 
       {analysis && !loading && (
         <>
           {/* Tab bar */}
-          <div className="tab-scroll" style={{ display: 'flex', gap: 0, borderBottom: '1px solid rgba(255,255,255,0.07)', marginBottom: 36 }}>
-            {tabs.map(([id, label]) => (
-              <button key={id} className="tab-btn" onClick={() => setATab(id)}
-                style={{ padding: '10px 16px', fontSize: 13, fontWeight: aTab === id ? 600 : 400, color: aTab === id ? '#ff9900' : '#4b5563', marginBottom: -1, background: 'none', border: 'none', borderBottom: `2px solid ${aTab === id ? '#ff9900' : 'transparent'}`, cursor: 'pointer', fontFamily: "'IBM Plex Sans', sans-serif", whiteSpace: 'nowrap', flexShrink: 0 }}>
-                {label}
+          <div className="tab-scroll-wrap" style={{ marginBottom: 36 }}>
+            <div className="tab-scroll" style={{ display: 'flex', gap: 0, borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
+              {tabs.map(([id, label, short]) => (
+                <button key={id} className="tab-btn analysis-tab" onClick={() => setATab(id)}
+                  style={{ padding: '10px 16px', fontSize: 13, fontWeight: aTab === id ? 600 : 400, color: aTab === id ? '#ff9900' : '#4b5563', marginBottom: -1, background: 'none', border: 'none', borderBottom: `2px solid ${aTab === id ? '#ff9900' : 'transparent'}`, cursor: 'pointer', fontFamily: "'IBM Plex Sans', sans-serif", whiteSpace: 'nowrap', flexShrink: 0 }}>
+                  <span className="tab-full">{label}</span>
+                  <span className="tab-short">{short}</span>
+                </button>
+              ))}
+              <div style={{ flex: 1 }} />
+              <button className="ghost-btn reanalyze-btn" onClick={onReanalyze}
+                style={{ padding: '8px 16px', fontSize: 12, color: '#334155', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 6, margin: '6px 0', background: 'transparent', cursor: 'pointer', fontFamily: "'IBM Plex Sans', sans-serif", flexShrink: 0 }}>
+                ↺ Re-analyze
               </button>
-            ))}
-            <div style={{ flex: 1 }} />
-            <button className="ghost-btn reanalyze-btn" onClick={onReanalyze}
-              style={{ padding: '8px 16px', fontSize: 12, color: '#334155', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 6, margin: '6px 0', background: 'transparent', cursor: 'pointer', fontFamily: "'IBM Plex Sans', sans-serif", flexShrink: 0 }}>
-              ↺ Re-analyze
-            </button>
+            </div>
           </div>
 
           {/* ── Recommendation tab ── */}

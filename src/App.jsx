@@ -44,6 +44,9 @@ const CSS = `
     background-size: 40px 40px;
   }
 
+  .tab-short { display: none; }
+  .tab-scroll-wrap { position: relative; }
+
   @media (max-width: 640px) {
     .nav-label    { display: none; }
     .header-stats { display: none; }
@@ -52,6 +55,18 @@ const CSS = `
     .tab-scroll::-webkit-scrollbar { display: none; }
     .reanalyze-btn { display: none; }
     .rec-tips     { grid-template-columns: 1fr !important; }
+    .tab-full  { display: none; }
+    .tab-short { display: inline; }
+    .analysis-tab { padding: 10px 10px !important; }
+    .tab-scroll-wrap::after {
+      content: '';
+      position: absolute;
+      right: 0; top: 0; bottom: 0;
+      width: 32px;
+      background: linear-gradient(to right, transparent, #060b18);
+      pointer-events: none;
+      z-index: 1;
+    }
   }
   @media (max-width: 480px) {
     .header-inner  { padding: 0 12px !important; }
