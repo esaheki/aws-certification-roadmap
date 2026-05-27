@@ -325,6 +325,7 @@ export default function App() {
                   background: (step === 1 || step === 2) ? 'linear-gradient(135deg,#ff9900,#ff5500)' : 'rgba(255,153,0,0.1)',
                   color: (step === 1 || step === 2) ? '#000' : '#ff9900',
                   border: step === 0 ? '1px solid rgba(255,153,0,0.3)' : 'none',
+                  whiteSpace: 'nowrap',
                 }}>
                 {loading ? 'Analyzing…' : step === 0 ? 'Next: My Certifications →' : '⚡ Generate My Path'}
               </button>
