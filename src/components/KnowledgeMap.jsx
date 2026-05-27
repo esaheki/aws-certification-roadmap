@@ -1,6 +1,6 @@
 import { SERVICES, PROFICIENCY_LEVELS } from '../config/services.js'
 
-const BULK_LABELS = ['None', 'B', 'I', 'A']
+const BULK_LABELS = ['○', '●', '●●', '●●●']
 
 export default function KnowledgeMap({ kmap, onToggle, onBulkSet }) {
   const lv = (s) => kmap[s] || 0
@@ -55,7 +55,7 @@ export default function KnowledgeMap({ kmap, onToggle, onBulkSet }) {
                         style={{
                           padding: '2px 8px',
                           borderRadius: 5,
-                          fontSize: 10,
+                          fontSize: 8,
                           fontFamily: "'IBM Plex Mono', monospace",
                           cursor: 'pointer',
                           border: `1px solid ${isActive ? p.border : 'rgba(255,255,255,0.07)'}`,
