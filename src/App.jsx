@@ -314,7 +314,7 @@ export default function App() {
             <div style={{ display: 'flex', gap: 8 }}>
               {step > 0 && step < 2 && (
                 <button className="ghost-btn" onClick={() => setStep(s => s - 1)}
-                  style={{ padding: '10px 20px', background: 'rgba(255,255,255,0.04)', color: '#64748b', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 8, fontSize: 13 }}>
+                  style={{ padding: '10px 20px', background: 'rgba(255,255,255,0.04)', color: '#64748b', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 8, fontSize: 13, whiteSpace: 'nowrap' }}>
                   ← Back
                 </button>
               )}
