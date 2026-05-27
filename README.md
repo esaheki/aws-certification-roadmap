@@ -40,9 +40,13 @@ Browser (React/Vite)
         │           ├── analyze-fetch-docs  DynamoDB: pre-extracted exam domains
         │           └── analyze-final       Sonnet 4.6 (Bedrock): full analysis
         │
-        └── GET /analyze/{id}      ← polls execution status + result
+        ├── GET /analyze/{id}      ← polls execution status + result
+        │     └── DynamoDB (certpath-executions)
+        │
+        ├── GET /profile           ← load user profile (kmap, certs, role)
+        └── POST /profile          ← save user profile
               └── DynamoDB
-                    ├── certpath-profiles     user profiles
+                    ├── certpath-profiles     user profiles (kmap, owned certs, role)
                     ├── certpath-examguides   official exam domain cache (monthly refresh)
                     └── certpath-executions   in-flight execution tracking
 
@@ -64,18 +68,20 @@ aws-certpath/
 │   │   ├── Certifications.jsx    Step 2: owned cert checklist
 │   │   └── Analysis.jsx          Step 3: enriched AI recommendation display
 │   ├── config/
-│   │   ├── services.js           AWS services data (10 categories)
-│   │   └── certifications.js     AWS certifications data (11 certs)
+│   │   ├── services.js           AWS services data (10 categories, 100+ services)
+│   │   └── certifications.js     AWS certifications data (12 certs)
 │   └── lib/
-│       ├── analysis.js           startAnalysis() + pollAnalysis() via API Gateway
+│       ├── analysis.js           startAnalysis(), pollAnalysis(), getProfile(), saveProfile()
 │       └── auth.js               Cognito helpers
 │
 ├── backend/functions/
 │   ├── analyze-start/            POST /analyze → starts Step Functions
-│   ├── analyze-classify/         SF Step 1: Haiku → certCode
+│   ├── analyze-classify/         SF Step 1: Haiku → certCode (role-aware)
 │   ├── analyze-fetch-docs/       SF Step 2: DynamoDB → exam domains
 │   ├── analyze-final/            SF Step 3: Sonnet → full enriched analysis
 │   ├── analyze-status/           GET /analyze/{id} → status + result
+│   ├── profile-get/              GET /profile → load user profile from DynamoDB
+│   ├── profile-save/             POST /profile → save user profile to DynamoDB
 │   ├── step-tracker/             EventBridge → step progress to DynamoDB
 │   └── populate-exam-guides/     Monthly cron: docs → Haiku → DynamoDB
 │
@@ -136,24 +142,23 @@ VITE_API_BASE_URL=<ApiGatewayURL from CDK output>
 
 ## How the Analysis Works
 
-1. **You map your AWS knowledge** — rate 70 services across 10 categories (None / Basic / Intermediate / Advanced)
-2. **You check your certs** — mark which AWS certifications you already hold
-3. **Click "Generate My Path"** — the app:
-   - Calls Haiku to classify your best next cert (~1s)
+1. **You map your AWS knowledge** — rate 100+ services across 10 categories (None / Basic / Intermediate / Advanced)
+2. **You select your target role** — Cloud Architect, Developer, DevOps, Data Engineer, ML/AI, Security, Networking, GenAI, or Cloud Generalist
+3. **You check your certs** — mark which AWS certifications you already hold
+4. **Click "Generate My Path"** — the app:
+   - Calls Haiku to classify your best next cert, guided by your role's official AWS certification path (~1s)
    - Reads the official AWS exam guide domains from cache (~instant)
-   - Calls Sonnet to build a roadmap grounded in those official domains (~5-10s)
-4. **You see:**
+   - Calls Sonnet to build a roadmap grounded in those official domains, tailored to your role (~5-10s)
+5. **You see:**
    - Cert recommendation with readiness % and timeline
    - Knowledge gaps with priority
    - Phase-by-phase study roadmap
    - Hands-on project suggestions
    - Official exam domains + weights tab (when cache is populated)
 
-## Pending (see CLAUDE.md)
+Your knowledge map, certifications, and role are saved to DynamoDB and restored on next login.
 
-- [ ] Complete Cognito + Google OAuth (`src/lib/auth.js`)
-- [ ] Wire `<AuthProvider>` into `src/main.jsx`
-- [ ] Add `/callback` route for Cognito redirect
-- [ ] Add Google IdP credentials to CDK stack
-- [ ] DynamoDB profile persistence (load/save kmap + owned certs)
-- [ ] Restrict CORS to CloudFront domain in production
+## Pending
+
+- [ ] Restrict CORS to CloudFront domain in production (currently `*`)
+- [ ] Seed exam guide cache after first deploy (`aws lambda invoke --function-name certpath-populate-exam-guides /tmp/out.json`)
