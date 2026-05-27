@@ -156,6 +156,13 @@ export default function App() {
   const cycleService = (service) =>
     setKmap(prev => ({ ...prev, [service]: ((prev[service] || 0) + 1) % 4 }))
 
+  const setBulk = (services, level) =>
+    setKmap(prev => {
+      const next = { ...prev }
+      services.forEach(s => { next[s] = level })
+      return next
+    })
+
   const toggleCert = (id) =>
     setOwned(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n })
 
@@ -279,7 +286,7 @@ export default function App() {
 
       {/* ── Main ── */}
       <main className="grid-bg main-content" style={{ maxWidth: 1120, margin: '0 auto', padding: '36px 24px 120px' }}>
-        {step === 0 && <KnowledgeMap kmap={kmap} onToggle={cycleService} />}
+        {step === 0 && <KnowledgeMap kmap={kmap} onToggle={cycleService} onBulkSet={setBulk} />}
         {step === 1 && <Certifications owned={owned} onToggle={toggleCert} role={role} onRoleChange={setRole} />}
         {step === 2 && (
           <Analysis
