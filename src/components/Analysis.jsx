@@ -105,12 +105,12 @@ export default function Analysis({ analysis, loading, currentStep, error, aTab, 
           {aTab === 'rec' && (
             <div className="fade-in">
               <div style={{ background: 'rgba(255,153,0,0.05)', border: '1px solid rgba(255,153,0,0.22)', borderRadius: 14, padding: 'clamp(20px,4vw,36px)', marginBottom: 24, boxShadow: '0 0 0 1px rgba(255,153,0,0.25), 0 4px 24px rgba(255,153,0,0.12)' }}>
-                <div style={{ display: 'flex', gap: 32, alignItems: 'flex-start', flexWrap: 'wrap' }}>
+                <div className="rec-inner" style={{ display: 'flex', gap: 32, alignItems: 'flex-start', flexWrap: 'wrap' }}>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 10, color: '#ff9900', letterSpacing: '0.18em', marginBottom: 10 }}>RECOMMENDED NEXT CERTIFICATION</div>
                     <h2 style={{ fontFamily: "'Outfit', sans-serif", fontWeight: 900, fontSize: 28, color: '#fff', marginBottom: 5, lineHeight: 1.2 }}>AWS {analysis.rec.cert}</h2>
                     <div style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 12, color: '#334155', marginBottom: 18 }}>{analysis.rec.code} &nbsp;·&nbsp; {analysis.rec.level}</div>
-                    <p style={{ color: '#94a3b8', fontSize: 14, lineHeight: 1.8, maxWidth: 520 }}>{analysis.rec.why}</p>
+                    <p style={{ color: '#94a3b8', fontSize: 14, lineHeight: 1.8 }}>{analysis.rec.why}</p>
                     {analysis.metadata?.enriched && (
                       <div style={{ marginTop: 16, display: 'inline-flex', alignItems: 'center', gap: 6, background: 'rgba(34,197,94,0.08)', border: '1px solid rgba(34,197,94,0.2)', borderRadius: 6, padding: '5px 12px' }}>
                         <span style={{ fontSize: 11 }}>✓</span>
