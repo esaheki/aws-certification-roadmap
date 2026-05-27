@@ -3,14 +3,16 @@ import { DynamoDBClient, PutItemCommand } from '@aws-sdk/client-dynamodb'
 
 const sfn = new SFNClient({})
 const ddb = new DynamoDBClient({})
+const ALLOWED_ORIGINS = new Set(['https://esaheki.com', 'http://localhost:5173'])
 
 export const handler = async (event) => {
-  if (event.httpMethod === 'OPTIONS') return corsResponse(200, '')
+  const origin = event.headers?.origin || event.headers?.Origin || ''
+  if (event.httpMethod === 'OPTIONS') return cors(200, '', origin)
 
   try {
     const body = JSON.parse(event.body || '{}')
     const { kmap, certNames, total, role } = body
-    if (!kmap) return corsResponse(400, { error: 'Missing kmap' })
+    if (!kmap) return cors(400, { error: 'Missing kmap' }, origin)
 
     const claims = event.requestContext?.authorizer?.claims || {}
     const userId = claims.sub || 'anonymous'
@@ -35,21 +37,22 @@ export const handler = async (event) => {
       },
     }))
 
-    return corsResponse(200, { executionId })
+    return cors(200, { executionId }, origin)
   } catch (e) {
     console.error(e)
-    return corsResponse(500, { error: 'Internal server error' })
+    return cors(500, { error: 'Internal server error' }, origin)
   }
 }
 
-function corsResponse(statusCode, body) {
+function cors(statusCode, body, origin) {
   return {
     statusCode,
     headers: {
       'Content-Type': 'application/json',
-      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Origin': ALLOWED_ORIGINS.has(origin) ? origin : 'https://esaheki.com',
       'Access-Control-Allow-Headers': 'Content-Type,Authorization',
       'Access-Control-Allow-Methods': 'POST,OPTIONS',
+      'Vary': 'Origin',
     },
     body: typeof body === 'string' ? body : JSON.stringify(body),
   }

@@ -160,5 +160,4 @@ Your knowledge map, certifications, and role are saved to DynamoDB and restored 
 
 ## Pending
 
-- [ ] Restrict CORS to CloudFront domain in production (currently `*`)
 - [ ] Seed exam guide cache after first deploy (`aws lambda invoke --function-name certpath-populate-exam-guides /tmp/out.json`)
