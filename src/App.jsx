@@ -10,7 +10,7 @@ import { signIn, signOut }              from './lib/auth.js'
 // ── Global styles ─────────────────────────────────────────────────────────────
 
 const CSS = `
-  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500&family=Syne:wght@700;800;900&display=swap');
+  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500&family=Outfit:wght@700;800;900&display=swap');
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
   html, body { background: #060b18; }
   ::-webkit-scrollbar { width: 5px; height: 5px; }
@@ -49,14 +49,25 @@ const CSS = `
 
 export default function App() {
   const [step,        setStep]       = useState(0)
-  const [kmap,        setKmap]       = useState({})
-  const [owned,       setOwned]      = useState(new Set())
+  const [kmap,        setKmap]       = useState(() => {
+    try { return JSON.parse(localStorage.getItem('certpath-kmap') || '{}') } catch { return {} }
+  })
+  const [owned,       setOwned]      = useState(() => {
+    try { return new Set(JSON.parse(localStorage.getItem('certpath-owned') || '[]')) } catch { return new Set() }
+  })
+  const [role,        setRole]       = useState(() => localStorage.getItem('certpath-role') || null)
   const [analysis,    setAnalysis]   = useState(null)
   const [loading,     setLoading]    = useState(false)
   const [currentStep, setCurrentStep] = useState('')
   const [error,       setError]      = useState(null)
   const [aTab,        setATab]       = useState('rec')
   const { idToken, user, authLoading, logout } = useAuth()
+
+  // ── Persist kmap + owned to localStorage ──
+
+  useEffect(() => { localStorage.setItem('certpath-kmap', JSON.stringify(kmap)) }, [kmap])
+  useEffect(() => { localStorage.setItem('certpath-owned', JSON.stringify([...owned])) }, [owned])
+  useEffect(() => { role ? localStorage.setItem('certpath-role', role) : localStorage.removeItem('certpath-role') }, [role])
 
   // ── Resume polling on mount once auth resolves ──
 
@@ -103,7 +114,7 @@ export default function App() {
       } catch (e) {
         console.error('Poll error:', e)
       }
-    }, 2000)
+    }, 1000)
   }
 
   const generate = async () => {
@@ -119,7 +130,7 @@ export default function App() {
       .map(c => `${c.name} (${c.level})`)
 
     try {
-      const { executionId } = await startAnalysis({ kmap, certNames, total }, idToken)
+      const { executionId } = await startAnalysis({ kmap, certNames, total, role }, idToken)
       sessionStorage.setItem('executionId', executionId)
       setStep(2)
       startPolling(executionId, idToken)
@@ -142,7 +153,7 @@ export default function App() {
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <div style={{ width: 34, height: 34, background: 'linear-gradient(135deg,#ff9900 0%,#ff5500 100%)', borderRadius: 9, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 17, boxShadow: '0 0 18px rgba(255,153,0,0.35)' }}>☁</div>
             <div>
-              <div style={{ fontFamily: "'Syne', sans-serif", fontWeight: 900, fontSize: 15, color: '#ff9900', letterSpacing: '0.1em', lineHeight: 1 }}>CERTPATH</div>
+              <div style={{ fontFamily: "'Outfit', sans-serif", fontWeight: 900, fontSize: 15, color: '#ff9900', letterSpacing: '0.1em', lineHeight: 1 }}>CERTPATH</div>
               <div style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 9, color: '#334155', letterSpacing: '0.25em', marginTop: 1 }}>AWS · AI-POWERED</div>
             </div>
           </div>
@@ -166,8 +177,16 @@ export default function App() {
             {!authLoading && (
               user
                 ? <button className="ghost-btn" onClick={() => { logout(); signOut() }}
-                    style={{ padding: '5px 12px', background: 'rgba(255,255,255,0.04)', color: '#64748b', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 6, fontSize: 11, fontFamily: "'IBM Plex Mono', monospace" }}>
-                    {user.email?.split('@')[0] || 'Account'} ↩
+                    style={{ padding: '4px 10px 4px 4px', background: 'rgba(255,255,255,0.04)', color: '#64748b', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 20, fontSize: 11, fontFamily: "'IBM Plex Mono', monospace", display: 'flex', alignItems: 'center', gap: 7 }}>
+                    {user.picture
+                      ? <img src={user.picture} alt="" referrerPolicy="no-referrer"
+                          style={{ width: 22, height: 22, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} />
+                      : <div style={{ width: 22, height: 22, borderRadius: '50%', background: 'rgba(255,153,0,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, color: '#ff9900', fontWeight: 700, flexShrink: 0 }}>
+                          {(user.name || user.email || '?')[0].toUpperCase()}
+                        </div>
+                    }
+                    <span>{user.name?.split(' ')[0] || user.email?.split('@')[0] || 'Account'}</span>
+                    <span style={{ color: '#334155', fontSize: 9 }}>↩</span>
                   </button>
                 : <button className="ghost-btn" onClick={signIn}
                     style={{ padding: '5px 12px', background: 'rgba(255,153,0,0.08)', color: '#ff9900', border: '1px solid rgba(255,153,0,0.25)', borderRadius: 6, fontSize: 11, fontFamily: "'IBM Plex Mono', monospace" }}>
@@ -181,7 +200,7 @@ export default function App() {
       {/* ── Main ── */}
       <main className="grid-bg" style={{ maxWidth: 1120, margin: '0 auto', padding: '36px 24px 120px' }}>
         {step === 0 && <KnowledgeMap kmap={kmap} onToggle={cycleService} />}
-        {step === 1 && <Certifications owned={owned} onToggle={toggleCert} />}
+        {step === 1 && <Certifications owned={owned} onToggle={toggleCert} role={role} onRoleChange={setRole} />}
         {step === 2 && (
           <Analysis
             analysis={analysis}

@@ -9,7 +9,7 @@ export const handler = async (event) => {
 
   try {
     const body = JSON.parse(event.body || '{}')
-    const { kmap, certNames, total } = body
+    const { kmap, certNames, total, role } = body
     if (!kmap) return corsResponse(400, { error: 'Missing kmap' })
 
     const claims = event.requestContext?.authorizer?.claims || {}
@@ -17,7 +17,7 @@ export const handler = async (event) => {
 
     const { executionArn } = await sfn.send(new StartExecutionCommand({
       stateMachineArn: process.env.STATE_MACHINE_ARN,
-      input: JSON.stringify({ userId, kmap, certNames: certNames || [], total: total || 0 }),
+      input: JSON.stringify({ userId, kmap, certNames: certNames || [], total: total || 0, role: role || null }),
     }))
 
     const executionId = executionArn.split(':').pop()

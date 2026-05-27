@@ -13,6 +13,7 @@ import * as eventTargets from 'aws-cdk-lib/aws-events-targets'
 import * as iam          from 'aws-cdk-lib/aws-iam'
 import * as cloudfront   from 'aws-cdk-lib/aws-cloudfront'
 import * as cr           from 'aws-cdk-lib/custom-resources'
+import * as ssm          from 'aws-cdk-lib/aws-ssm'
 import * as path         from 'path'
 
 // The existing CloudFront distribution serving esaheki.com.
@@ -49,11 +50,35 @@ export class CertpathStack extends cdk.Stack {
     // certpath-users was retained from a prior deploy — import it
     const userPool = cognito.UserPool.fromUserPoolId(this, 'UserPool', 'us-east-1_8O7WAg33C')
 
-    // TODO: Add Google IdP when Google OAuth credentials are available
+    // ── Google IdP ────────────────────────────────────────────────────────────
+
+    const googleClientId     = ssm.StringParameter.valueForStringParameter(this, '/certpath/google-client-id')
+    const googleClientSecret = ssm.StringParameter.valueForStringParameter(this, '/certpath/google-client-secret')
+
+    const googleIdP = new cognito.CfnUserPoolIdentityProvider(this, 'GoogleIdP', {
+      userPoolId: userPool.userPoolId,
+      providerName: 'Google',
+      providerType: 'Google',
+      providerDetails: {
+        client_id: googleClientId,
+        client_secret: googleClientSecret,
+        authorize_scopes: 'openid email profile',
+      },
+      attributeMapping: {
+        email: 'email',
+        name: 'name',
+        picture: 'picture',
+        username: 'sub',
+      },
+    })
 
     const userPoolClient = new cognito.UserPoolClient(this, 'UserPoolClient', {
       userPool,
       generateSecret: false,
+      supportedIdentityProviders: [
+        cognito.UserPoolClientIdentityProvider.GOOGLE,
+        cognito.UserPoolClientIdentityProvider.COGNITO,
+      ],
       oAuth: {
         flows: { authorizationCodeGrant: true },
         scopes: [cognito.OAuthScope.OPENID, cognito.OAuthScope.EMAIL, cognito.OAuthScope.PROFILE],
@@ -61,6 +86,7 @@ export class CertpathStack extends cdk.Stack {
         logoutUrls:   ['https://esaheki.com/aws', 'http://localhost:5173'],
       },
     })
+    userPoolClient.node.addDependency(googleIdP)
 
     const userPoolDomain = new cognito.UserPoolDomain(this, 'UserPoolDomain', {
       userPool,
@@ -81,7 +107,7 @@ export class CertpathStack extends cdk.Stack {
       runtime: lambda.Runtime.NODEJS_20_X,
       handler: 'index.handler',
       code: lambda.Code.fromAsset(path.join(__dirname, '../../backend/functions/analyze-classify')),
-      timeout: cdk.Duration.seconds(30),
+      timeout: cdk.Duration.seconds(60),
       memorySize: 256,
       environment: { EXECUTIONS_TABLE: executionsTable.tableName },
     })
@@ -112,7 +138,7 @@ export class CertpathStack extends cdk.Stack {
       runtime: lambda.Runtime.NODEJS_20_X,
       handler: 'index.handler',
       code: lambda.Code.fromAsset(path.join(__dirname, '../../backend/functions/analyze-final')),
-      timeout: cdk.Duration.seconds(30),
+      timeout: cdk.Duration.seconds(120),
       memorySize: 256,
       environment: { EXECUTIONS_TABLE: executionsTable.tableName },
     })

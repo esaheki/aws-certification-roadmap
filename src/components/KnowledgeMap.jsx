@@ -6,7 +6,7 @@ export default function KnowledgeMap({ kmap, onToggle }) {
   return (
     <div className="fade-in">
       <div style={{ marginBottom: 36 }}>
-        <h1 style={{ fontFamily: "'Syne', sans-serif", fontWeight: 900, fontSize: 30, marginBottom: 10, background: 'linear-gradient(to right,#fff,#94a3b8)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+        <h1 style={{ fontFamily: "'Outfit', sans-serif", fontWeight: 900, fontSize: 30, marginBottom: 10, background: 'linear-gradient(to right,#fff,#94a3b8)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
           Map Your AWS Knowledge
         </h1>
         <p style={{ color: '#475569', fontSize: 14, maxWidth: 540, lineHeight: 1.7 }}>

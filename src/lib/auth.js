@@ -13,8 +13,9 @@ export function signIn() {
     response_type: 'code',
     scope: 'openid email profile',
     redirect_uri: getRedirectUri(),
+    identity_provider: 'Google',
   })
-  window.location.href = `https://${COGNITO_DOMAIN}/login?${params}`
+  window.location.href = `https://${COGNITO_DOMAIN}/oauth2/authorize?${params}`
 }
 
 export function signOut() {

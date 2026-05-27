@@ -55,28 +55,50 @@ async function processCert(certCode, landingUrl) {
   const pages = settled.filter(r => r.status === 'fulfilled').map(r => r.value)
   if (pages.length === 0) throw new Error('No pages fetched')
 
-  const content = pages.join('\n\n---\n\n').slice(0, 16000)
+  const content = pages.join('\n\n---\n\n').slice(0, 28000)
 
   const bedrockRes = await bedrock.send(new ConverseCommand({
     modelId: MODEL,
     messages: [{
       role: 'user',
-      content: [{ text: `Extract the exam domain table from this AWS certification exam guide content.
-Return ONLY JSON:
-{"domains":[{"domain":"string","weight":"XX%","taskStatements":["string"]}]}
-The content spans multiple pages — find the domain/weight breakdown wherever it appears.
-Omit all other content.
+      content: [{ text: `You are extracting structured data from an official AWS certification exam guide.
+
+Return ONLY a JSON object with this exact shape — no markdown, no commentary:
+{
+  "domains": [
+    {
+      "domain": "Domain name",
+      "weight": "XX%",
+      "taskStatements": ["Task statement 1", "Task statement 2"]
+    }
+  ],
+  "inScopeServices": ["Service 1", "Service 2"],
+  "outOfScopeServices": ["Service A", "Service B"],
+  "targetCandidate": "One paragraph describing the recommended candidate background and experience",
+  "recommendedKnowledge": ["Knowledge area 1", "Knowledge area 2"],
+  "examOverview": "2-3 sentences summarising what this certification validates"
+}
+
+Rules:
+- domains: extract every domain with its percentage weight and all task statements listed under it
+- inScopeServices: list every AWS service/feature explicitly mentioned as in-scope (usually in an appendix)
+- outOfScopeServices: list services explicitly called out as out-of-scope (may be empty [])
+- targetCandidate: summarise the target candidate description (role, years of experience, background)
+- recommendedKnowledge: bullet list of specific knowledge areas or skills the guide recommends
+- examOverview: your own concise summary of what the exam tests
 
 <examguide>
 ${content}
 </examguide>` }],
     }],
-    inferenceConfig: { maxTokens: 1000 },
+    inferenceConfig: { maxTokens: 3000 },
   }))
 
   const text = bedrockRes.output.message.content[0].text.trim()
-  const { domains } = JSON.parse(text.replace(/```json\n?|```/g, '').trim())
-  return { domains, pageCount: pages.length }
+  const jsonMatch = text.match(/\{[\s\S]*\}/)
+  if (!jsonMatch) throw new Error(`No JSON in extraction response`)
+  const examGuide = JSON.parse(jsonMatch[0])
+  return { examGuide, pageCount: pages.length }
 }
 
 export const handler = async () => {
@@ -85,18 +107,19 @@ export const handler = async () => {
 
   for (const [certCode, landingUrl] of Object.entries(CERT_LANDING_PAGES)) {
     try {
-      const { domains, pageCount } = await processCert(certCode, landingUrl)
+      const { examGuide, pageCount } = await processCert(certCode, landingUrl)
       await ddb.send(new PutItemCommand({
         TableName: process.env.EXAM_GUIDES_TABLE,
         Item: {
           pk:        { S: certCode },
-          domains:   { S: JSON.stringify(domains) },
+          examGuide: { S: JSON.stringify(examGuide) },
+          domains:   { S: JSON.stringify(examGuide.domains) },
           pageCount: { N: pageCount.toString() },
           fetchedAt: { S: fetchedAt },
           ttl:       { N: ttl.toString() },
         },
       }))
-      console.log(`✓ ${certCode}: ${pageCount} pages, ${domains.length} domains`)
+      console.log(`✓ ${certCode}: ${pageCount} pages, ${examGuide.domains.length} domains, ${examGuide.inScopeServices?.length ?? 0} services`)
     } catch (e) {
       console.error(`✗ ${certCode}: ${e.message}`)
     }

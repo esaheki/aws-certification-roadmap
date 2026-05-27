@@ -10,7 +10,7 @@ export const handler = async (event) => {
       TableName: process.env.EXECUTIONS_TABLE,
       Key: { pk: { S: executionId } },
       UpdateExpression: 'SET currentStep = :step',
-      ExpressionAttributeValues: { ':step': { S: 'Fetching official AWS exam guide...' } },
+      ExpressionAttributeValues: { ':step': { S: 'Loading official exam guide...' } },
     })).catch(e => console.warn('Step update failed:', e.message))
   }
 
@@ -20,9 +20,13 @@ export const handler = async (event) => {
       Key: { pk: { S: certCode } },
     }))
 
-    if (!res.Item) return { ...event, domains: [] }
+    if (!res.Item) return { ...event, examGuide: null }
 
-    return { ...event, domains: JSON.parse(res.Item.domains.S) }
+    const examGuide = res.Item.examGuide
+      ? JSON.parse(res.Item.examGuide.S)
+      : { domains: JSON.parse(res.Item.domains?.S || '[]') }
+
+    return { ...event, examGuide }
   } catch (e) {
     console.error('Fetch docs error:', e)
     return { ...event, domains: [] }

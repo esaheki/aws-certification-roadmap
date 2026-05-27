@@ -1,13 +1,13 @@
 const API_BASE = (import.meta.env.VITE_API_BASE_URL || 'https://vd6qepmrlb.execute-api.us-east-1.amazonaws.com/prod').replace(/\/$/, '')
 
-export async function startAnalysis({ kmap, certNames, total }, idToken) {
+export async function startAnalysis({ kmap, certNames, total, role }, idToken) {
   const res = await fetch(`${API_BASE}/analyze`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
       ...(idToken && { Authorization: idToken }),
     },
-    body: JSON.stringify({ kmap, certNames, total }),
+    body: JSON.stringify({ kmap, certNames, total, role }),
   })
   if (!res.ok) throw new Error(`API error ${res.status}`)
   return res.json()

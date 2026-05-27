@@ -1,9 +1,14 @@
 import { useState, useEffect } from 'react'
 import { exchangeCodeForTokens, decodeIdToken } from '../lib/auth.js'
 
+const TOKEN_KEY = 'certpath-id-token'
+
 export function useAuth() {
-  const [idToken, setIdToken] = useState(null)
-  const [user, setUser] = useState(null)
+  const [idToken, setIdToken] = useState(() => sessionStorage.getItem(TOKEN_KEY))
+  const [user, setUser] = useState(() => {
+    const t = sessionStorage.getItem(TOKEN_KEY)
+    return t ? decodeIdToken(t) : null
+  })
   const [authLoading, setAuthLoading] = useState(true)
 
   useEffect(() => {
@@ -17,6 +22,7 @@ export function useAuth() {
 
       exchangeCodeForTokens(code)
         .then(({ id_token }) => {
+          sessionStorage.setItem(TOKEN_KEY, id_token)
           setIdToken(id_token)
           setUser(decodeIdToken(id_token))
         })
@@ -28,6 +34,7 @@ export function useAuth() {
   }, [])
 
   const logout = () => {
+    sessionStorage.removeItem(TOKEN_KEY)
     setIdToken(null)
     setUser(null)
   }

@@ -1,15 +1,55 @@
 import { CERTIFICATIONS, CERT_LEVEL_STYLES, CERT_LEVELS_ORDER } from '../config/certifications.js'
 
-export default function Certifications({ owned, onToggle }) {
+const ROLES = [
+  { id: 'cloud-architect',    label: 'Cloud Architect',        icon: '🏗' },
+  { id: 'developer',          label: 'Developer',              icon: '💻' },
+  { id: 'devops',             label: 'DevOps / CloudOps',      icon: '⚙️' },
+  { id: 'data-engineer',      label: 'Data Engineer',          icon: '📊' },
+  { id: 'ml-engineer',        label: 'ML / AI Engineer',       icon: '🤖' },
+  { id: 'security',           label: 'Security Engineer',      icon: '🔒' },
+  { id: 'networking',         label: 'Network Engineer',       icon: '🌐' },
+  { id: 'generative-ai',      label: 'GenAI Developer',        icon: '✨' },
+  { id: 'cloud-practitioner', label: 'Cloud Generalist',       icon: '☁️' },
+]
+
+export default function Certifications({ owned, onToggle, role, onRoleChange }) {
   return (
     <div className="fade-in">
       <div style={{ marginBottom: 36 }}>
-        <h1 style={{ fontFamily: "'Syne', sans-serif", fontWeight: 900, fontSize: 30, marginBottom: 10, background: 'linear-gradient(to right,#fff,#94a3b8)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+        <h1 style={{ fontFamily: "'Outfit', sans-serif", fontWeight: 900, fontSize: 30, marginBottom: 10, background: 'linear-gradient(to right,#fff,#94a3b8)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
           Your Certifications
         </h1>
         <p style={{ color: '#475569', fontSize: 14, lineHeight: 1.7 }}>
           Select every AWS certification you currently hold — the AI builds around what you already know.
         </p>
+      </div>
+
+      {/* ── Role selector ── */}
+      <div style={{ marginBottom: 40 }}>
+        <div style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 10, letterSpacing: '0.18em', color: '#ff9900', marginBottom: 14, textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: 8 }}>
+          <div style={{ height: 1, width: 16, background: '#ff9900', opacity: 0.4 }} />
+          Your Current or Target Role
+        </div>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+          {ROLES.map(r => {
+            const active = role === r.id
+            return (
+              <button key={r.id} onClick={() => onRoleChange(active ? null : r.id)}
+                style={{
+                  padding: '8px 16px', borderRadius: 8, fontSize: 13, fontWeight: active ? 600 : 400,
+                  background: active ? 'rgba(255,153,0,0.15)' : 'rgba(255,255,255,0.04)',
+                  border: `1px solid ${active ? 'rgba(255,153,0,0.5)' : 'rgba(255,255,255,0.08)'}`,
+                  color: active ? '#ff9900' : '#64748b',
+                  cursor: 'pointer', fontFamily: "'IBM Plex Sans', sans-serif",
+                  display: 'flex', alignItems: 'center', gap: 6,
+                  transition: 'all 0.15s',
+                }}>
+                <span style={{ fontSize: 14 }}>{r.icon}</span>
+                {r.label}
+              </button>
+            )
+          })}
+        </div>
       </div>
 
       {CERT_LEVELS_ORDER.map(lvl => {
