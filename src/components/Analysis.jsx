@@ -84,16 +84,16 @@ export default function Analysis({ analysis, loading, currentStep, error, aTab, 
       {analysis && !loading && (
         <>
           {/* Tab bar */}
-          <div style={{ display: 'flex', gap: 0, borderBottom: '1px solid rgba(255,255,255,0.07)', marginBottom: 36 }}>
+          <div className="tab-scroll" style={{ display: 'flex', gap: 0, borderBottom: '1px solid rgba(255,255,255,0.07)', marginBottom: 36 }}>
             {tabs.map(([id, label]) => (
               <button key={id} className="tab-btn" onClick={() => setATab(id)}
-                style={{ padding: '10px 22px', fontSize: 13, fontWeight: aTab === id ? 600 : 400, color: aTab === id ? '#ff9900' : '#4b5563', marginBottom: -1, background: 'none', border: 'none', borderBottom: `2px solid ${aTab === id ? '#ff9900' : 'transparent'}`, cursor: 'pointer', fontFamily: "'IBM Plex Sans', sans-serif" }}>
+                style={{ padding: '10px 16px', fontSize: 13, fontWeight: aTab === id ? 600 : 400, color: aTab === id ? '#ff9900' : '#4b5563', marginBottom: -1, background: 'none', border: 'none', borderBottom: `2px solid ${aTab === id ? '#ff9900' : 'transparent'}`, cursor: 'pointer', fontFamily: "'IBM Plex Sans', sans-serif", whiteSpace: 'nowrap', flexShrink: 0 }}>
                 {label}
               </button>
             ))}
             <div style={{ flex: 1 }} />
-            <button className="ghost-btn" onClick={onReanalyze}
-              style={{ padding: '8px 16px', fontSize: 12, color: '#334155', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 6, margin: '6px 0', background: 'transparent', cursor: 'pointer', fontFamily: "'IBM Plex Sans', sans-serif" }}>
+            <button className="ghost-btn reanalyze-btn" onClick={onReanalyze}
+              style={{ padding: '8px 16px', fontSize: 12, color: '#334155', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 6, margin: '6px 0', background: 'transparent', cursor: 'pointer', fontFamily: "'IBM Plex Sans', sans-serif", flexShrink: 0 }}>
               ↺ Re-analyze
             </button>
           </div>
@@ -101,9 +101,9 @@ export default function Analysis({ analysis, loading, currentStep, error, aTab, 
           {/* ── Recommendation tab ── */}
           {aTab === 'rec' && (
             <div className="fade-in">
-              <div style={{ background: 'rgba(255,153,0,0.05)', border: '1px solid rgba(255,153,0,0.22)', borderRadius: 14, padding: 36, marginBottom: 24, boxShadow: '0 0 0 1px rgba(255,153,0,0.25), 0 4px 24px rgba(255,153,0,0.12)' }}>
+              <div style={{ background: 'rgba(255,153,0,0.05)', border: '1px solid rgba(255,153,0,0.22)', borderRadius: 14, padding: 'clamp(20px,4vw,36px)', marginBottom: 24, boxShadow: '0 0 0 1px rgba(255,153,0,0.25), 0 4px 24px rgba(255,153,0,0.12)' }}>
                 <div style={{ display: 'flex', gap: 32, alignItems: 'flex-start', flexWrap: 'wrap' }}>
-                  <div style={{ flex: 1, minWidth: 280 }}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 10, color: '#ff9900', letterSpacing: '0.18em', marginBottom: 10 }}>RECOMMENDED NEXT CERTIFICATION</div>
                     <h2 style={{ fontFamily: "'Outfit', sans-serif", fontWeight: 900, fontSize: 28, color: '#fff', marginBottom: 5, lineHeight: 1.2 }}>AWS {analysis.rec.cert}</h2>
                     <div style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 12, color: '#334155', marginBottom: 18 }}>{analysis.rec.code} &nbsp;·&nbsp; {analysis.rec.level}</div>
@@ -127,7 +127,7 @@ export default function Analysis({ analysis, loading, currentStep, error, aTab, 
                   </div>
                 </div>
               </div>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 12 }}>
+              <div className="rec-tips" style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 12 }}>
                 {[['📚','Study smart','Focus on the gaps tab — those are your highest-leverage topics.'],['🏗️','Build to learn','Hands-on projects beat flashcards. Check the Projects tab.'],['✅','Track progress','Re-analyze as you learn to watch your readiness score climb.']].map(([icon, title, body], i) => (
                   <div key={i} style={{ background: 'rgba(255,255,255,0.025)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 10, padding: 18 }}>
                     <div style={{ fontSize: 20, marginBottom: 8 }}>{icon}</div>

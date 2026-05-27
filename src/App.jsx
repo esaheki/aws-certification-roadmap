@@ -43,6 +43,21 @@ const CSS = `
       linear-gradient(90deg, rgba(255,255,255,0.022) 1px, transparent 1px);
     background-size: 40px 40px;
   }
+
+  @media (max-width: 640px) {
+    .nav-label    { display: none; }
+    .header-stats { display: none; }
+    .auth-label   { display: none; }
+    .tab-scroll   { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+    .tab-scroll::-webkit-scrollbar { display: none; }
+    .reanalyze-btn { display: none; }
+    .rec-tips     { grid-template-columns: 1fr !important; }
+  }
+  @media (max-width: 480px) {
+    .header-inner  { padding: 0 12px !important; }
+    .main-content  { padding: 20px 14px 120px !important; }
+    .action-inner  { padding: 10px 14px !important; }
+  }
 `
 
 // ── App ────────────────────────────────────────────────────────────────────────
@@ -180,7 +195,7 @@ export default function App() {
 
       {/* ── Header ── */}
       <header style={{ position: 'sticky', top: 0, zIndex: 200, background: 'rgba(6,11,24,0.92)', backdropFilter: 'blur(16px)', borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
-        <div style={{ maxWidth: 1120, margin: '0 auto', padding: '0 24px', height: 60, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <div className="header-inner" style={{ maxWidth: 1120, margin: '0 auto', padding: '0 24px', height: 60, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <div style={{ width: 34, height: 34, background: 'linear-gradient(135deg,#ff9900 0%,#ff5500 100%)', borderRadius: 9, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 17, boxShadow: '0 0 18px rgba(255,153,0,0.35)' }}>☁</div>
             <div>
@@ -192,15 +207,15 @@ export default function App() {
           <nav style={{ display: 'flex' }}>
             {[['Knowledge Map', 0], ['Certifications', 1], ['Your Path', 2]].map(([label, i]) => (
               <button key={i} className="tab-btn" onClick={() => setStep(i)}
-                style={{ padding: '0 20px', height: 60, fontSize: 13, color: step === i ? '#ff9900' : '#4b5563', fontWeight: step === i ? 600 : 400, borderBottom: `2px solid ${step === i ? '#ff9900' : 'transparent'}` }}>
-                <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 10, marginRight: 6, color: step === i ? '#ff9900' : '#1e293b' }}>{i + 1}.</span>
-                {label}
+                style={{ padding: '0 14px', height: 60, fontSize: 13, color: step === i ? '#ff9900' : '#4b5563', fontWeight: step === i ? 600 : 400, borderBottom: `2px solid ${step === i ? '#ff9900' : 'transparent'}` }}>
+                <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 10, marginRight: 4, color: step === i ? '#ff9900' : '#1e293b' }}>{i + 1}.</span>
+                <span className="nav-label">{label}</span>
               </button>
             ))}
           </nav>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 11, color: '#334155' }}>
+            <span className="header-stats" style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 11, color: '#334155' }}>
               {total > 0 && <span>{total} services</span>}
               {total > 0 && owned.size > 0 && <span style={{ color: '#1e293b' }}> · </span>}
               {owned.size > 0 && <span>{owned.size} certs</span>}
@@ -216,7 +231,7 @@ export default function App() {
                           {(user.name || user.email || '?')[0].toUpperCase()}
                         </div>
                     }
-                    <span>{user.name?.split(' ')[0] || user.email?.split('@')[0] || 'Account'}</span>
+                    <span className="auth-label">{user.name?.split(' ')[0] || user.email?.split('@')[0] || 'Account'}</span>
                     <span style={{ color: '#334155', fontSize: 9 }}>↩</span>
                   </button>
                 : <button className="ghost-btn" onClick={signIn}
@@ -229,7 +244,7 @@ export default function App() {
       </header>
 
       {/* ── Main ── */}
-      <main className="grid-bg" style={{ maxWidth: 1120, margin: '0 auto', padding: '36px 24px 120px' }}>
+      <main className="grid-bg main-content" style={{ maxWidth: 1120, margin: '0 auto', padding: '36px 24px 120px' }}>
         {step === 0 && <KnowledgeMap kmap={kmap} onToggle={cycleService} />}
         {step === 1 && <Certifications owned={owned} onToggle={toggleCert} role={role} onRoleChange={setRole} />}
         {step === 2 && (
@@ -249,7 +264,7 @@ export default function App() {
       {/* ── Bottom action bar ── */}
       {(step < 2 || (!analysis && !loading)) && (
         <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, background: 'rgba(6,11,24,0.97)', borderTop: '1px solid rgba(255,255,255,0.07)', zIndex: 150, backdropFilter: 'blur(12px)' }}>
-          <div style={{ maxWidth: 1120, margin: '0 auto', padding: '14px 24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div className="action-inner" style={{ maxWidth: 1120, margin: '0 auto', padding: '14px 24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 11, color: '#1e293b' }}>
               {step === 0 && `${total} service${total !== 1 ? 's' : ''} marked`}
               {step === 1 && `${owned.size} certification${owned.size !== 1 ? 's' : ''} selected`}
