@@ -3,6 +3,7 @@ import { Construct }     from 'constructs'
 import * as s3           from 'aws-cdk-lib/aws-s3'
 import * as s3deploy     from 'aws-cdk-lib/aws-s3-deployment'
 import * as cognito      from 'aws-cdk-lib/aws-cognito'
+import * as acm          from 'aws-cdk-lib/aws-certificatemanager'
 import * as lambda       from 'aws-cdk-lib/aws-lambda'
 import * as apigw        from 'aws-cdk-lib/aws-apigateway'
 import * as dynamodb     from 'aws-cdk-lib/aws-dynamodb'
@@ -88,9 +89,19 @@ export class CertpathStack extends cdk.Stack {
     })
     userPoolClient.node.addDependency(googleIdP)
 
+    // ACM cert for custom Cognito domain — must be in us-east-1 (Cognito requirement).
+    // CDK will pause deployment and print the DNS validation CNAME to add in your DNS provider.
+    const cognitoAuthCert = new acm.Certificate(this, 'CognitoAuthCert', {
+      domainName: 'auth.esaheki.com',
+      validation: acm.CertificateValidation.fromDns(),
+    })
+
     const userPoolDomain = new cognito.UserPoolDomain(this, 'UserPoolDomain', {
       userPool,
-      cognitoDomain: { domainPrefix: 'certpath-auth' },
+      customDomain: {
+        domainName: 'auth.esaheki.com',
+        certificate: cognitoAuthCert,
+      },
     })
 
     // ── Bedrock IAM policy (reusable) ────────────────────────────────────────
@@ -397,7 +408,8 @@ export class CertpathStack extends cdk.Stack {
     new cdk.CfnOutput(this, 'ApiGatewayURL',    { value: api.url })
     new cdk.CfnOutput(this, 'UserPoolId',       { value: userPool.userPoolId })
     new cdk.CfnOutput(this, 'UserPoolClientId', { value: userPoolClient.userPoolClientId })
-    new cdk.CfnOutput(this, 'CognitoDomain',    { value: `${userPoolDomain.domainName}.auth.${this.region}.amazoncognito.com` })
+    new cdk.CfnOutput(this, 'CognitoAuthDomain',      { value: 'auth.esaheki.com' })
+    new cdk.CfnOutput(this, 'CognitoCloudFrontAlias', { value: userPoolDomain.cloudFrontDomainName, description: 'Add CNAME: auth.esaheki.com → this value' })
     new cdk.CfnOutput(this, 'StateMachineArn',  { value: stateMachine.stateMachineArn })
     new cdk.CfnOutput(this, 'FrontendBucketName', { value: bucket.bucketName })
   }

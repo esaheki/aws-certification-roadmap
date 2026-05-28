@@ -1,4 +1,4 @@
-const COGNITO_DOMAIN = 'certpath-auth.auth.us-east-1.amazoncognito.com'
+const COGNITO_DOMAIN = 'auth.esaheki.com'
 const CLIENT_ID = '5te63com7b0g3342ec287o6tvk'
 
 function getRedirectUri() {
