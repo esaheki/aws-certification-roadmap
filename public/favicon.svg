@@ -5,13 +5,12 @@
       <stop offset="1" stop-color="#DD4000"/>
     </linearGradient>
   </defs>
-  <!-- Background -->
   <rect width="100" height="100" rx="22" fill="url(#g)"/>
-  <!-- Rising path: bottom-left → middle → top-right -->
-  <path d="M28 72 C40 72 40 50 50 50 C60 50 60 24 72 24"
-        stroke="white" stroke-width="8" stroke-linecap="round" fill="none" opacity="0.88"/>
-  <!-- Milestone dots -->
-  <circle cx="28" cy="72" r="11" fill="white"/>
-  <circle cx="50" cy="50" r="11" fill="white"/>
-  <circle cx="72" cy="24" r="11" fill="white"/>
+  <!-- Triangle cluster: two hexagons bottom, one on top (honeycomb arrangement) -->
+  <!-- Bottom-left -->
+  <polygon points="36,49 48.1,56 48.1,70 36,77 23.9,70 23.9,56" fill="white"/>
+  <!-- Bottom-right -->
+  <polygon points="64,49 76.1,56 76.1,70 64,77 51.9,70 51.9,56" fill="white"/>
+  <!-- Top-center -->
+  <polygon points="50,25 62.1,32 62.1,46 50,53 37.9,46 37.9,32" fill="white"/>
 </svg>

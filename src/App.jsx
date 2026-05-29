@@ -234,10 +234,9 @@ export default function App() {
                   </linearGradient>
                 </defs>
                 <rect width="100" height="100" rx="22" fill="url(#cpGrad)"/>
-                <path d="M28 72 C40 72 40 50 50 50 C60 50 60 24 72 24" stroke="white" strokeWidth="8" strokeLinecap="round" fill="none" opacity="0.88"/>
-                <circle cx="28" cy="72" r="11" fill="white"/>
-                <circle cx="50" cy="50" r="11" fill="white"/>
-                <circle cx="72" cy="24" r="11" fill="white"/>
+                <polygon points="36,49 48.1,56 48.1,70 36,77 23.9,70 23.9,56" fill="white"/>
+                <polygon points="64,49 76.1,56 76.1,70 64,77 51.9,70 51.9,56" fill="white"/>
+                <polygon points="50,25 62.1,32 62.1,46 50,53 37.9,46 37.9,32" fill="white"/>
               </svg>
             <div>
               <div style={{ fontFamily: "'Outfit', sans-serif", fontWeight: 900, fontSize: 15, color: '#ff9900', letterSpacing: '0.1em', lineHeight: 1 }}>CERTPATH</div>
