@@ -1,5 +1,20 @@
 import { useState, useEffect } from 'react'
 
+const CERT_GUIDE_URLS = {
+  'CLF-C02': 'https://docs.aws.amazon.com/aws-certification/latest/cloud-practitioner-02/cloud-practitioner-02.html',
+  'AIF-C01': 'https://docs.aws.amazon.com/aws-certification/latest/ai-practitioner-01/ai-practitioner-01.html',
+  'SAA-C03': 'https://docs.aws.amazon.com/aws-certification/latest/solutions-architect-associate-03/solutions-architect-associate-03.html',
+  'DVA-C02': 'https://docs.aws.amazon.com/aws-certification/latest/developer-associate-02/developer-associate-02.html',
+  'SOA-C03': 'https://docs.aws.amazon.com/aws-certification/latest/sysops-administrator-associate-03/sysops-administrator-associate-03.html',
+  'DEA-C01': 'https://docs.aws.amazon.com/aws-certification/latest/data-engineer-associate-01/data-engineer-associate-01.html',
+  'MLA-C01': 'https://docs.aws.amazon.com/aws-certification/latest/machine-learning-engineer-associate-01/machine-learning-engineer-associate-01.html',
+  'SAP-C02': 'https://docs.aws.amazon.com/aws-certification/latest/solutions-architect-professional-02/solutions-architect-professional-02.html',
+  'DOP-C02': 'https://docs.aws.amazon.com/aws-certification/latest/devops-engineer-professional-02/devops-engineer-professional-02.html',
+  'AIP-C01': 'https://docs.aws.amazon.com/aws-certification/latest/ai-professional-01/ai-professional-01.html',
+  'ANS-C01': 'https://docs.aws.amazon.com/aws-certification/latest/advanced-networking-specialty-01/advanced-networking-specialty-01.html',
+  'SCS-C02': 'https://docs.aws.amazon.com/aws-certification/latest/security-specialty-03/security-specialty-03.html',
+}
+
 const STEPS = [
   'Analyzing your AWS knowledge map...',
   'Certification path identified...',
@@ -126,10 +141,11 @@ export default function Analysis({ analysis, loading, currentStep, error, aTab, 
                 {/* Explanation — full card width */}
                 <p style={{ color: '#94a3b8', fontSize: 14, lineHeight: 1.8 }}>{analysis.rec.why}</p>
                 {analysis.metadata?.enriched && (
-                  <div style={{ marginTop: 16, display: 'inline-flex', alignItems: 'center', gap: 6, background: 'rgba(34,197,94,0.08)', border: '1px solid rgba(34,197,94,0.2)', borderRadius: 6, padding: '5px 12px' }}>
+                  <a href={CERT_GUIDE_URLS[analysis.metadata.certCode] || 'https://aws.amazon.com/certification/'} target="_blank" rel="noopener noreferrer"
+                    style={{ marginTop: 16, display: 'inline-flex', alignItems: 'center', gap: 6, background: 'rgba(34,197,94,0.08)', border: '1px solid rgba(34,197,94,0.2)', borderRadius: 6, padding: '5px 12px', textDecoration: 'none', cursor: 'pointer' }}>
                     <span style={{ fontSize: 11 }}>✓</span>
-                    <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 10, color: '#4ade80', letterSpacing: '0.1em' }}>Based on official AWS exam guide</span>
-                  </div>
+                    <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 10, color: '#4ade80', letterSpacing: '0.1em' }}>Based on official AWS exam guide ↗</span>
+                  </a>
                 )}
               </div>
               <div className="rec-tips" style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 12 }}>
@@ -232,9 +248,10 @@ export default function Analysis({ analysis, loading, currentStep, error, aTab, 
             <div className="fade-in">
               <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 6 }}>
                 <h2 style={{ fontFamily: "'Outfit', sans-serif", fontWeight: 800, fontSize: 22 }}>Official Exam Domains</h2>
-                <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: 'rgba(34,197,94,0.08)', border: '1px solid rgba(34,197,94,0.2)', borderRadius: 6, padding: '4px 10px' }}>
-                  <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 10, color: '#4ade80', letterSpacing: '0.1em' }}>From official AWS exam guide</span>
-                </div>
+                <a href={CERT_GUIDE_URLS[analysis.metadata?.certCode] || 'https://aws.amazon.com/certification/'} target="_blank" rel="noopener noreferrer"
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: 'rgba(34,197,94,0.08)', border: '1px solid rgba(34,197,94,0.2)', borderRadius: 6, padding: '4px 10px', textDecoration: 'none', cursor: 'pointer' }}>
+                  <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 10, color: '#4ade80', letterSpacing: '0.1em' }}>From official AWS exam guide ↗</span>
+                </a>
               </div>
               <p style={{ color: '#475569', fontSize: 13, marginBottom: 24 }}>Domain weights from the official {analysis.metadata?.certCode} exam guide:</p>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
