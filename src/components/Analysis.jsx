@@ -1,19 +1,7 @@
 import { useState, useEffect } from 'react'
+import { CERTIFICATIONS } from '../config/certifications.js'
 
-const CERT_GUIDE_URLS = {
-  'CLF-C02': 'https://docs.aws.amazon.com/aws-certification/latest/cloud-practitioner-02/cloud-practitioner-02.html',
-  'AIF-C01': 'https://docs.aws.amazon.com/aws-certification/latest/ai-practitioner-01/ai-practitioner-01.html',
-  'SAA-C03': 'https://docs.aws.amazon.com/aws-certification/latest/solutions-architect-associate-03/solutions-architect-associate-03.html',
-  'DVA-C02': 'https://docs.aws.amazon.com/aws-certification/latest/developer-associate-02/developer-associate-02.html',
-  'SOA-C03': 'https://docs.aws.amazon.com/aws-certification/latest/sysops-administrator-associate-03/sysops-administrator-associate-03.html',
-  'DEA-C01': 'https://docs.aws.amazon.com/aws-certification/latest/data-engineer-associate-01/data-engineer-associate-01.html',
-  'MLA-C01': 'https://docs.aws.amazon.com/aws-certification/latest/machine-learning-engineer-associate-01/machine-learning-engineer-associate-01.html',
-  'SAP-C02': 'https://docs.aws.amazon.com/aws-certification/latest/solutions-architect-professional-02/solutions-architect-professional-02.html',
-  'DOP-C02': 'https://docs.aws.amazon.com/aws-certification/latest/devops-engineer-professional-02/devops-engineer-professional-02.html',
-  'AIP-C01': 'https://docs.aws.amazon.com/aws-certification/latest/ai-professional-01/ai-professional-01.html',
-  'ANS-C01': 'https://docs.aws.amazon.com/aws-certification/latest/advanced-networking-specialty-01/advanced-networking-specialty-01.html',
-  'SCS-C02': 'https://docs.aws.amazon.com/aws-certification/latest/security-specialty-03/security-specialty-03.html',
-}
+const CERT_GUIDE_URLS = Object.fromEntries(CERTIFICATIONS.map(c => [c.code, c.guideUrl]))
 
 const STEPS = [
   'Analyzing your AWS knowledge map...',
