@@ -50,8 +50,15 @@ export const handler = async (event) => {
       })()
     : ''
 
-  const systemText = enriched
-    ? `You are a senior AWS certification advisor. Ground your analysis in the official exam guide content below.${roleCtx}
+  // For the enriched case the system prompt is split into two blocks:
+  //   block 1 (before cachePoint): static advisor persona + exam guide — identical for
+  //            every user requesting the same certCode, so Bedrock caches it across calls.
+  //   block 2 (after cachePoint):  role context — varies per user, not cached.
+  // For the non-enriched case the prompt is too short to meet the minimum cache threshold,
+  // so we use a single block with no cachePoint.
+  let systemBlocks
+  if (enriched) {
+    const staticBlock = `You are a senior AWS certification advisor. Ground your analysis in the official exam guide content below.
 
 Official exam guide for ${certCode}:
 - Overview: ${examGuide.examOverview || ''}
@@ -62,7 +69,15 @@ Official exam guide for ${certCode}:
 - Out-of-scope services: ${(examGuide.outOfScopeServices || []).join(', ')}
 
 Use this to make gap analysis, roadmap, and project suggestions highly specific to what this exam actually tests. Return ONLY JSON matching the exact shape requested.`
-    : `You are a senior AWS certification advisor.${roleCtx} Return ONLY JSON matching the exact shape requested.`
+
+    systemBlocks = [
+      { text: staticBlock },
+      { cachePoint: { type: 'default' } },
+      ...(roleCtx ? [{ text: roleCtx.trim() }] : []),
+    ]
+  } else {
+    systemBlocks = [{ text: `You are a senior AWS certification advisor.${roleCtx} Return ONLY JSON matching the exact shape requested.` }]
+  }
 
   const userText = `Learner profile:
 - AWS services knowledge: ${kStr}
@@ -82,7 +97,7 @@ Provide 3-5 gaps, 3-5 roadmap phases, and 3 projects.`
 
   const res = await bedrock.send(new ConverseCommand({
     modelId: MODEL,
-    system: [{ text: systemText }],
+    system: systemBlocks,
     messages: [{ role: 'user', content: [{ text: userText }] }],
     inferenceConfig: { maxTokens: 4096 },
   }))

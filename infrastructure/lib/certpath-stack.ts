@@ -35,7 +35,7 @@ export class CertpathStack extends cdk.Stack {
       partitionKey: { name: 'pk', type: dynamodb.AttributeType.STRING },
       billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
       timeToLiveAttribute: 'ttl',
-      removalPolicy: cdk.RemovalPolicy.DESTROY,
+      removalPolicy: cdk.RemovalPolicy.RETAIN,
     })
 
     const executionsTable = new dynamodb.Table(this, 'ExecutionsTable', {
@@ -106,9 +106,18 @@ export class CertpathStack extends cdk.Stack {
 
     // ── Bedrock IAM policy (reusable) ────────────────────────────────────────
 
+    // Cross-region inference profiles (us.*) route calls across us-east-1, us-east-2,
+    // and us-west-2 based on capacity, so foundation-model ARNs need a region wildcard.
     const bedrockPolicy = new iam.PolicyStatement({
       actions: ['bedrock:InvokeModel'],
-      resources: ['*'],
+      resources: [
+        // Foundation models — region wildcard required for cross-region inference routing
+        `arn:aws:bedrock:*::foundation-model/anthropic.claude-haiku*`,
+        `arn:aws:bedrock:*::foundation-model/anthropic.claude-sonnet*`,
+        // Cross-region inference profiles — account-scoped, region where profile is registered
+        `arn:aws:bedrock:*:${this.account}:inference-profile/us.anthropic.claude-haiku*`,
+        `arn:aws:bedrock:*:${this.account}:inference-profile/us.anthropic.claude-sonnet*`,
+      ],
     })
 
     // ── Lambda: analyze-classify ─────────────────────────────────────────────
@@ -196,10 +205,13 @@ export class CertpathStack extends cdk.Stack {
       environment: {
         STATE_MACHINE_ARN: stateMachine.stateMachineArn,
         EXECUTIONS_TABLE:  executionsTable.tableName,
+        PROFILES_TABLE:    profilesTable.tableName,
       },
     })
     stateMachine.grantStartExecution(analyzeStartFn)
     executionsTable.grantWriteData(analyzeStartFn)
+    profilesTable.grantReadData(analyzeStartFn)
+    profilesTable.grantWriteData(analyzeStartFn)
 
     // ── Lambda: analyze-status ───────────────────────────────────────────────
 
@@ -366,16 +378,21 @@ export class CertpathStack extends cdk.Stack {
       memorySize: 256,
     })
 
+    const distributionArn = `arn:aws:cloudfront::${this.account}:distribution/${EXISTING_DISTRIBUTION_ID}`
+    const cfFunctionArn   = `arn:aws:cloudfront::${this.account}:function/certpath-spa-routing`
+
+    updateDistFn.addToRolePolicy(new iam.PolicyStatement({
+      actions: ['cloudfront:GetDistributionConfig', 'cloudfront:UpdateDistribution'],
+      resources: [distributionArn],
+    }))
     updateDistFn.addToRolePolicy(new iam.PolicyStatement({
       actions: [
-        'cloudfront:GetDistributionConfig',
-        'cloudfront:UpdateDistribution',
         'cloudfront:CreateFunction',
         'cloudfront:PublishFunction',
         'cloudfront:DeleteFunction',
         'cloudfront:DescribeFunction',
       ],
-      resources: ['*'],
+      resources: [cfFunctionArn],
     }))
 
     const updateDistProvider = new cr.Provider(this, 'UpdateDistProvider', {

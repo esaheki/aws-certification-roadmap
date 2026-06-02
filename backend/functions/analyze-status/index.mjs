@@ -21,7 +21,7 @@ export const handler = async (event) => {
 
     if (!res.Item) return cors(404, { error: 'Execution not found' }, origin)
 
-    if (userId && res.Item.userId?.S !== userId) {
+    if (!userId || res.Item.userId?.S !== userId) {
       return cors(403, { error: 'Forbidden' }, origin)
     }
 

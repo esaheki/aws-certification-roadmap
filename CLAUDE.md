@@ -9,10 +9,10 @@ grounded in official AWS exam guide content.
 ## Current Status
 - ✅ Core React UI complete (KnowledgeMap, Certifications, Analysis views)
 - ✅ CDK stack scaffolded (Cognito, API Gateway, Lambda, DynamoDB, S3+CloudFront)
-- ⬜ Enriched analysis pipeline (see PLAN.md — Step Functions + Bedrock + exam guide cache)
-- ⬜ Cognito + Google OAuth integration
-- ⬜ User data persistence (DynamoDB profiles)
-- ⬜ CloudFront + S3 deployment
+- ✅ Enriched analysis pipeline (see PLAN.md — Step Functions + Bedrock + exam guide cache)
+- ✅ Cognito + Google OAuth integration
+- ✅ User data persistence (DynamoDB profiles)
+- ✅ CloudFront + S3 deployment
 
 ## Tech Stack
 - **Frontend**: React 18 + Vite, inline styles (no CSS framework dependency)

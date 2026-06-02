@@ -1,9 +1,10 @@
 import { SFNClient, StartExecutionCommand } from '@aws-sdk/client-sfn'
-import { DynamoDBClient, PutItemCommand } from '@aws-sdk/client-dynamodb'
+import { DynamoDBClient, PutItemCommand, GetItemCommand, UpdateItemCommand } from '@aws-sdk/client-dynamodb'
 
 const sfn = new SFNClient({})
 const ddb = new DynamoDBClient({})
 const ALLOWED_ORIGINS = new Set(['https://esaheki.com', 'http://localhost:5173'])
+const RATE_LIMIT_SECONDS = 300 // 5 minutes between analyses per user
 
 export const handler = async (event) => {
   const origin = event.headers?.origin || event.headers?.Origin || ''
@@ -16,6 +17,23 @@ export const handler = async (event) => {
 
     const claims = event.requestContext?.authorizer?.claims || {}
     const userId = claims.sub || 'anonymous'
+
+    // Rate limit: reject if this user ran an analysis less than 5 minutes ago
+    if (userId !== 'anonymous' && process.env.PROFILES_TABLE) {
+      const profile = await ddb.send(new GetItemCommand({
+        TableName: process.env.PROFILES_TABLE,
+        Key: { pk: { S: userId } },
+        ProjectionExpression: 'lastAnalysisAt',
+      }))
+      const lastAt = profile.Item?.lastAnalysisAt?.S
+      if (lastAt) {
+        const secondsSince = (Date.now() - new Date(lastAt).getTime()) / 1000
+        if (secondsSince < RATE_LIMIT_SECONDS) {
+          const retryAfter = Math.ceil(RATE_LIMIT_SECONDS - secondsSince)
+          return cors(429, { error: `Rate limit exceeded. Try again in ${retryAfter}s.` }, origin)
+        }
+      }
+    }
 
     const { executionArn } = await sfn.send(new StartExecutionCommand({
       stateMachineArn: process.env.STATE_MACHINE_ARN,
@@ -36,6 +54,16 @@ export const handler = async (event) => {
         ttl:         { N: ttl.toString() },
       },
     }))
+
+    // Stamp the time so the rate limit check works on the next request
+    if (userId !== 'anonymous' && process.env.PROFILES_TABLE) {
+      await ddb.send(new UpdateItemCommand({
+        TableName: process.env.PROFILES_TABLE,
+        Key: { pk: { S: userId } },
+        UpdateExpression: 'SET lastAnalysisAt = :t',
+        ExpressionAttributeValues: { ':t': { S: new Date().toISOString() } },
+      })).catch(e => console.warn('Failed to stamp lastAnalysisAt:', e.message))
+    }
 
     return cors(200, { executionId }, origin)
   } catch (e) {
