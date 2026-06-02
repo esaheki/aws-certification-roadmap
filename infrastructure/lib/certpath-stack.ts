@@ -142,7 +142,7 @@ export class CertpathStack extends cdk.Stack {
       handler: 'index.handler',
       code: lambda.Code.fromAsset(path.join(__dirname, '../../backend/functions/analyze-fetch-docs')),
       timeout: cdk.Duration.seconds(30),
-      memorySize: 256,
+      memorySize: 128,
       environment: {
         EXAM_GUIDES_TABLE: examGuidesTable.tableName,
         EXECUTIONS_TABLE:  executionsTable.tableName,
@@ -159,7 +159,7 @@ export class CertpathStack extends cdk.Stack {
       handler: 'index.handler',
       code: lambda.Code.fromAsset(path.join(__dirname, '../../backend/functions/analyze-final')),
       timeout: cdk.Duration.seconds(120),
-      memorySize: 256,
+      memorySize: 512,
       environment: { EXECUTIONS_TABLE: executionsTable.tableName },
     })
     finalFn.addToRolePolicy(bedrockPolicy)
@@ -201,7 +201,7 @@ export class CertpathStack extends cdk.Stack {
       handler: 'index.handler',
       code: lambda.Code.fromAsset(path.join(__dirname, '../../backend/functions/analyze-start')),
       timeout: cdk.Duration.seconds(30),
-      memorySize: 256,
+      memorySize: 128,
       environment: {
         STATE_MACHINE_ARN: stateMachine.stateMachineArn,
         EXECUTIONS_TABLE:  executionsTable.tableName,
@@ -221,7 +221,7 @@ export class CertpathStack extends cdk.Stack {
       handler: 'index.handler',
       code: lambda.Code.fromAsset(path.join(__dirname, '../../backend/functions/analyze-status')),
       timeout: cdk.Duration.seconds(30),
-      memorySize: 256,
+      memorySize: 128,
       environment: { EXECUTIONS_TABLE: executionsTable.tableName },
     })
     executionsTable.grantReadData(analyzeStatusFn)
@@ -234,7 +234,7 @@ export class CertpathStack extends cdk.Stack {
       handler: 'index.handler',
       code: lambda.Code.fromAsset(path.join(__dirname, '../../backend/functions/step-tracker')),
       timeout: cdk.Duration.seconds(30),
-      memorySize: 256,
+      memorySize: 128,
       environment: { EXECUTIONS_TABLE: executionsTable.tableName },
     })
     executionsTable.grantWriteData(stepTrackerFn)
@@ -306,7 +306,7 @@ export class CertpathStack extends cdk.Stack {
       handler: 'index.handler',
       code: lambda.Code.fromAsset(path.join(__dirname, '../../backend/functions/profile-get')),
       timeout: cdk.Duration.seconds(15),
-      memorySize: 256,
+      memorySize: 128,
       environment: { PROFILES_TABLE: profilesTable.tableName },
     })
     profilesTable.grantReadData(profileGetFn)
@@ -319,7 +319,7 @@ export class CertpathStack extends cdk.Stack {
       handler: 'index.handler',
       code: lambda.Code.fromAsset(path.join(__dirname, '../../backend/functions/profile-save')),
       timeout: cdk.Duration.seconds(15),
-      memorySize: 256,
+      memorySize: 128,
       environment: { PROFILES_TABLE: profilesTable.tableName },
     })
     profilesTable.grantWriteData(profileSaveFn)
