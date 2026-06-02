@@ -20,9 +20,11 @@ export const handler = async (event) => {
     if (!res.Item) return cors(200, { kmap: {}, owned: [], role: null }, origin)
 
     return cors(200, {
-      kmap:  res.Item.kmap  ? JSON.parse(res.Item.kmap.S)  : {},
-      owned: res.Item.owned ? JSON.parse(res.Item.owned.S) : [],
-      role:  res.Item.role  ? res.Item.role.S              : null,
+      kmap:               res.Item.kmap               ? JSON.parse(res.Item.kmap.S)               : {},
+      owned:              res.Item.owned              ? JSON.parse(res.Item.owned.S)              : [],
+      role:               res.Item.role               ? res.Item.role.S                           : null,
+      analysis:           res.Item.analysis           ? JSON.parse(res.Item.analysis.S)           : null,
+      analysisInputHash:  res.Item.analysisInputHash  ? res.Item.analysisInputHash.S              : null,
     }, origin)
   } catch (e) {
     console.error(e)

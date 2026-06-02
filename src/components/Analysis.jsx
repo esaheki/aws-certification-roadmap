@@ -11,7 +11,7 @@ const STEPS = [
   'Almost there...',
 ]
 
-export default function Analysis({ analysis, loading, currentStep, error, aTab, setATab, onGenerate, onReanalyze }) {
+export default function Analysis({ analysis, loading, currentStep, error, aTab, setATab, onGenerate, onReanalyze, isOutdated }) {
   const [autoIdx, setAutoIdx] = useState(-1)
 
   useEffect(() => {
@@ -86,6 +86,22 @@ export default function Analysis({ analysis, loading, currentStep, error, aTab, 
       {/* ── Results ── */}
       {analysis && !loading && (
         <>
+          {/* Outdated banner */}
+          {isOutdated && (
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.28)', borderRadius: 10, padding: '12px 18px', marginBottom: 20 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <span style={{ fontSize: 15 }}>⚠️</span>
+                <span style={{ fontSize: 13, color: '#fcd34d', lineHeight: 1.5 }}>
+                  Your profile has changed since this report was generated. Re-analyze for updated recommendations.
+                </span>
+              </div>
+              <button className="primary-btn" onClick={onReanalyze}
+                style={{ flexShrink: 0, padding: '7px 16px', background: 'linear-gradient(135deg,#ff9900,#ff5500)', color: '#000', border: 'none', borderRadius: 7, fontSize: 12, fontWeight: 700, whiteSpace: 'nowrap' }}>
+                ⚡ Re-analyze
+              </button>
+            </div>
+          )}
+
           {/* Tab bar */}
           <div className="tab-scroll-wrap" style={{ marginBottom: 36 }}>
             <div className="tab-scroll" style={{ display: 'flex', gap: 0, borderBottom: '1px solid rgba(255,255,255,0.07)' }}>

@@ -86,13 +86,33 @@ export default function App() {
     try { return new Set(JSON.parse(localStorage.getItem('certpath-owned') || '[]')) } catch { return new Set() }
   })
   const [role,        setRole]       = useState(() => localStorage.getItem('certpath-role') || null)
-  const [analysis,    setAnalysis]   = useState(null)
-  const [loading,     setLoading]    = useState(false)
-  const [currentStep, setCurrentStep] = useState('')
-  const [error,       setError]      = useState(null)
-  const [aTab,        setATab]       = useState('rec')
+  const [analysis,          setAnalysis]          = useState(null)
+  const [savedAnalysisHash, setSavedAnalysisHash] = useState(null)
+  const [loading,           setLoading]           = useState(false)
+  const [currentStep,       setCurrentStep]       = useState('')
+  const [error,             setError]             = useState(null)
+  const [aTab,              setATab]              = useState('rec')
   const { idToken, user, authLoading, logout } = useAuth()
-  const saveTimer = useRef(null)
+  const saveTimer  = useRef(null)
+  // Refs so the polling closure always reads the latest input values without
+  // needing to close over stale state.
+  const kmapRef    = useRef(kmap)
+  const ownedRef   = useRef(owned)
+  const roleRef    = useRef(role)
+  useEffect(() => { kmapRef.current  = kmap  }, [kmap])
+  useEffect(() => { ownedRef.current = owned }, [owned])
+  useEffect(() => { roleRef.current  = role  }, [role])
+
+  // ── Deterministic hash of the analysis inputs ──
+  // Returns a stable string that changes whenever kmap, owned, or role changes.
+  const computeInputHash = (kmapVal, ownedVal, roleVal) => {
+    const sortedKmap  = Object.fromEntries(Object.entries(kmapVal).sort())
+    const sortedOwned = [...ownedVal].sort()
+    return JSON.stringify({ kmap: sortedKmap, owned: sortedOwned, role: roleVal || null })
+  }
+
+  // ── Derive whether the saved report is outdated ──
+  const isOutdated = !!(analysis && savedAnalysisHash && computeInputHash(kmap, owned, role) !== savedAnalysisHash)
 
   // ── Persist kmap + owned to localStorage ──
 
@@ -104,7 +124,7 @@ export default function App() {
 
   useEffect(() => {
     if (authLoading || !idToken) return
-    getProfile(idToken).then(({ kmap: k, owned: o, role: r }) => {
+    getProfile(idToken).then(({ kmap: k, owned: o, role: r, analysis: a, analysisInputHash: h }) => {
       if (k && Object.keys(k).length) {
         setKmap(k)
         localStorage.setItem('certpath-kmap', JSON.stringify(k))
@@ -117,6 +137,22 @@ export default function App() {
         setRole(r)
         localStorage.setItem('certpath-role', r)
       }
+      if (a) {
+        setAnalysis(a)
+        setATab('rec')
+      }
+      if (h) {
+        setSavedAnalysisHash(h)
+      } else if (a) {
+        // Legacy report with no stored hash — compute a baseline from the loaded
+        // inputs so changes after this point will trigger the outdated banner.
+        const baseline = computeInputHash(
+          k && Object.keys(k).length ? k : kmap,
+          o && o.length ? new Set(o) : owned,
+          r || role
+        )
+        setSavedAnalysisHash(baseline)
+      }
     }).catch(e => console.warn('Profile load failed:', e.message))
   }, [authLoading, idToken])
 
@@ -126,9 +162,10 @@ export default function App() {
     if (!idToken) return
     clearTimeout(saveTimer.current)
     saveTimer.current = setTimeout(() => {
-      saveProfile({ kmap, owned, role }, idToken).catch(e => console.warn('Profile save failed:', e.message))
+      saveProfile({ kmap, owned, role, analysis, analysisInputHash: savedAnalysisHash }, idToken)
+        .catch(e => console.warn('Profile save failed:', e.message))
     }, 2000)
-  }, [kmap, owned, role, idToken])
+  }, [kmap, owned, role, analysis, savedAnalysisHash, idToken])
 
   // ── Resume polling / restore step on mount once auth resolves ──
 
@@ -168,10 +205,10 @@ export default function App() {
 
   const total = Object.values(kmap).filter(v => v > 0).length
 
-  function startPolling(executionId, idToken) {
+  function startPolling(executionId, token) {
     const interval = setInterval(async () => {
       try {
-        const { status, currentStep: step, result } = await pollAnalysis(executionId, idToken)
+        const { status, currentStep: step, result } = await pollAnalysis(executionId, token)
         setCurrentStep(step || '')
         if (status === 'SUCCEEDED') {
           clearInterval(interval)
@@ -180,6 +217,11 @@ export default function App() {
           setStep(2)
           setATab('rec')
           setLoading(false)
+          // Snapshot the inputs at the moment the report was generated and save to profile.
+          const hash = computeInputHash(kmapRef.current, ownedRef.current, roleRef.current)
+          setSavedAnalysisHash(hash)
+          saveProfile({ kmap: kmapRef.current, owned: ownedRef.current, role: roleRef.current, analysis: result, analysisInputHash: hash }, token)
+            .catch(e => console.warn('Profile save (analysis) failed:', e.message))
         } else if (status === 'FAILED') {
           clearInterval(interval)
           sessionStorage.removeItem('executionId')
@@ -198,6 +240,7 @@ export default function App() {
     setLoading(true)
     setError(null)
     setAnalysis(null)
+    setSavedAnalysisHash(null)
     setCurrentStep('Starting...')
 
     const certNames = CERTIFICATIONS
@@ -297,6 +340,7 @@ export default function App() {
             setATab={setATab}
             onGenerate={generate}
             onReanalyze={generate}
+            isOutdated={isOutdated}
           />
         )}
       </main>

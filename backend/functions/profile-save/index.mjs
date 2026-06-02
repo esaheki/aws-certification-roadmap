@@ -12,7 +12,7 @@ export const handler = async (event) => {
     const userId = claims.sub
     if (!userId) return cors(401, { error: 'Unauthorized' }, origin)
 
-    const { kmap, owned, role } = JSON.parse(event.body || '{}')
+    const { kmap, owned, role, analysis, analysisInputHash } = JSON.parse(event.body || '{}')
 
     const item = {
       pk:        { S: userId },
@@ -20,7 +20,9 @@ export const handler = async (event) => {
       owned:     { S: JSON.stringify(owned || []) },
       updatedAt: { S: new Date().toISOString() },
     }
-    if (role) item.role = { S: role }
+    if (role)               item.role               = { S: role }
+    if (analysis)           item.analysis           = { S: JSON.stringify(analysis) }
+    if (analysisInputHash)  item.analysisInputHash  = { S: analysisInputHash }
 
     await ddb.send(new PutItemCommand({
       TableName: process.env.PROFILES_TABLE,

@@ -29,14 +29,14 @@ export async function getProfile(idToken) {
   return res.json()
 }
 
-export async function saveProfile({ kmap, owned, role }, idToken) {
+export async function saveProfile({ kmap, owned, role, analysis, analysisInputHash }, idToken) {
   const res = await fetch(`${API_BASE}/profile`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
       ...(idToken && { Authorization: idToken }),
     },
-    body: JSON.stringify({ kmap, owned: [...owned], role }),
+    body: JSON.stringify({ kmap, owned: [...owned], role, analysis, analysisInputHash }),
   })
   if (!res.ok) throw new Error(`Profile save error ${res.status}`)
 }
