@@ -7,114 +7,96 @@ receive AI-powered recommendations (next cert, study roadmap, hands-on projects)
 grounded in official AWS exam guide content.
 
 ## Current Status
-- ✅ Core React UI complete (KnowledgeMap, Certifications, Analysis views)
-- ✅ CDK stack scaffolded (Cognito, API Gateway, Lambda, DynamoDB, S3+CloudFront)
-- ✅ Enriched analysis pipeline (see PLAN.md — Step Functions + Bedrock + exam guide cache)
-- ✅ Cognito + Google OAuth integration
+- ✅ Core React UI (KnowledgeMap, Certifications, Analysis views)
+- ✅ CDK stack (Cognito + Google OAuth, API Gateway, Lambda, DynamoDB, S3+CloudFront)
+- ✅ Enriched analysis pipeline (Lambda Durable Functions + Bedrock + exam guide cache)
+- ✅ Cognito + Google OAuth integration (custom domain auth.esaheki.com)
 - ✅ User data persistence (DynamoDB profiles)
-- ✅ CloudFront + S3 deployment
+- ✅ CloudFront + S3 deployment (esaheki.com/aws)
+- ✅ CloudWatch dashboard, alarms, X-Ray tracing, structured logging
+- ✅ Well-Architected review hardening (rate limiting, scoped IAM, DLQ, prompt caching)
 
 ## Tech Stack
 - **Frontend**: React 18 + Vite, inline styles (no CSS framework dependency)
 - **Auth**: AWS Cognito (User Pool + Google OAuth 2.0 IdP) — see `src/lib/auth.js`
 - **AI**: Amazon Bedrock — Claude Haiku 4.5 + Claude Sonnet 4.6 via IAM (no API keys)
-- **Orchestration**: AWS Step Functions Standard Workflow (async, 3-state pipeline)
-- **Infra**: AWS CDK (TypeScript) — see `infrastructure/`
+- **Orchestration**: Lambda Durable Functions (`@aws/durable-execution-sdk-js`)
+- **Infra**: AWS CDK (TypeScript) v2.257 — see `infrastructure/`
 
-## Architecture (Target)
+## Architecture
 
 ```
 Browser (React/Vite)
   │
-  ├── S3 + CloudFront                    ← static hosting
+  ├── S3 + CloudFront (esaheki.com/aws)       ← static hosting
   │
-  ├── Cognito User Pool                  ← auth (Google OAuth 2.0)
+  ├── Cognito User Pool (auth.esaheki.com)    ← Google OAuth 2.0
   │
   └── API Gateway (Cognito authorizer)
-        ├── POST /analyze                ← analyze-start Lambda → starts Step Functions
-        │     └── Step Functions SM
-        │           ├── analyze-classify  ← Haiku (Bedrock): cert code recommendation
-        │           ├── analyze-fetch-docs← DynamoDB: pre-extracted exam domains
-        │           └── analyze-final     ← Sonnet (Bedrock): full enriched analysis
+        ├── POST /analyze                      ← analyze-start → fires durable orchestrator
+        │     └── analyze-orchestrator (Durable, Node.js 24)
+        │           ├── analyze-classify        Haiku: cert code recommendation
+        │           ├── analyze-fetch-docs      DynamoDB: pre-extracted exam domains
+        │           └── analyze-final           Sonnet: full enriched analysis
         │
-        └── GET /analyze/{id}            ← analyze-status Lambda → polls DynamoDB
+        ├── GET /analyze/{id}                  ← analyze-status → polls DynamoDB
+        │     └── certpath-executions DynamoDB
+        │
+        ├── GET /profile                       ← profile-get
+        └── POST /profile                      ← profile-save
               └── DynamoDB
-                    ├── certpath-profiles    ← user knowledge maps + certs
-                    ├── certpath-examguides  ← cached exam domain JSON (monthly refresh)
-                    └── certpath-executions  ← in-flight analysis status + results
+                    ├── certpath-profiles      user knowledge maps + certs
+                    ├── certpath-examguides    cached exam domain JSON (monthly refresh)
+                    └── certpath-executions    execution status + results
 
 EventBridge cron (monthly)
   └── populate-exam-guides Lambda
         └── AWS docs (.md) → Haiku extract → certpath-examguides DynamoDB
 ```
 
-## Priority Next Steps (see PLAN.md for full spec)
-
-### 1. Build the enriched analysis pipeline
-See `PLAN.md` for the full spec. Implementation order:
-- 7 new Lambda functions under `backend/functions/`
-- Step Functions state machine + EventBridge rules in CDK stack
-- Monthly exam guide pre-population cron
-- Frontend polling loop + progress UI + examDomains tab
-
-### 2. Cognito + Google OAuth
-Implement `src/lib/auth.js` using `amazon-cognito-identity-js` or Amplify Auth.
-Required env vars (see `.env.example`):
-- `VITE_COGNITO_USER_POOL_ID`
-- `VITE_COGNITO_CLIENT_ID`
-- `VITE_COGNITO_DOMAIN`
-
-Flow: Google Sign-In → Cognito hosted UI → JWT → store in memory (not localStorage)
-
-### 3. DynamoDB persistence
-After auth, load/save user's knowledge map and certs keyed by Cognito `sub`.
-Endpoint: POST /profile (save), GET /profile (load)
-
-### 4. CDK Stack finalization
-- Wire S3 + CloudFront deployment
-- Add Google IdP credentials to Cognito User Pool
-- Update Cognito callback URLs to CloudFront domain
-
 ## Project Structure
 ```
 aws-certpath/
-├── CLAUDE.md                        ← you are here
+├── CLAUDE.md                           ← you are here
 ├── README.md
-├── PLAN.md                          ← full spec for the enriched analysis pipeline
+├── RISKS.md                            ← Well-Architected review (gitignored)
 ├── package.json
 ├── vite.config.js
 ├── index.html
 ├── .env.example
 ├── src/
-│   ├── main.jsx                     ← React entry point
-│   ├── App.jsx                      ← Root: step nav, poll loop, sessionStorage resume
+│   ├── main.jsx
+│   ├── App.jsx                         ← Root: step nav, poll loop, sessionStorage resume
 │   ├── components/
-│   │   ├── KnowledgeMap.jsx         ← Step 1: AWS service proficiency map
-│   │   ├── Certifications.jsx       ← Step 2: Owned cert checklist
-│   │   └── Analysis.jsx             ← Step 3: AI result + progress + examDomains tab
+│   │   ├── KnowledgeMap.jsx            ← Step 1: AWS service proficiency map
+│   │   ├── Certifications.jsx          ← Step 2: Owned cert checklist
+│   │   └── Analysis.jsx                ← Step 3: AI result + progress + examDomains tab
 │   ├── lib/
-│   │   ├── analysis.js              ← startAnalysis() + pollAnalysis() via API Gateway
-│   │   └── auth.js                  ← Cognito helpers (scaffold)
+│   │   ├── analysis.js                 ← startAnalysis() + pollAnalysis() via API Gateway
+│   │   └── auth.js                     ← Cognito helpers
 │   ├── hooks/
-│   │   └── useAuth.js               ← Auth state hook (scaffold)
+│   │   └── useAuth.js                  ← Auth state hook
 │   └── config/
-│       ├── services.js              ← AWS services data (10 categories, 70 services)
-│       └── certifications.js        ← AWS certifications data (11 certs)
+│       ├── services.js                 ← AWS services data (10 categories, 70+ services)
+│       └── certifications.js           ← AWS certifications data (12 certs)
 ├── backend/
 │   └── functions/
-│       ├── analyze-start/           ← POST /analyze → starts Step Functions execution
-│       ├── analyze-classify/        ← SF Step 1: Haiku → certCode
-│       ├── analyze-fetch-docs/      ← SF Step 2: DynamoDB read → domains JSON
-│       ├── analyze-final/           ← SF Step 3: Sonnet → full enriched analysis
-│       ├── analyze-status/          ← GET /analyze/{id} → polling status + result
-│       ├── step-tracker/            ← EventBridge → writes step progress to DynamoDB
-│       └── populate-exam-guides/    ← Monthly cron: AWS docs → Haiku extract → DynamoDB
+│       ├── analyze-start/              ← POST /analyze → fires durable orchestrator
+│       ├── analyze-orchestrator/       ← Durable orchestrator: classify → fetch → final
+│       ├── analyze-classify/           ← Activity: Haiku → certCode
+│       ├── analyze-fetch-docs/         ← Activity: DynamoDB read → domains JSON
+│       ├── analyze-final/              ← Activity: Sonnet → full enriched analysis
+│       ├── analyze-status/             ← GET /analyze/{id} → polling status + result
+│       ├── profile-get/                ← GET /profile
+│       ├── profile-save/               ← POST /profile
+│       ├── populate-exam-guides/       ← Monthly cron: AWS docs → Haiku → DynamoDB
+│       └── update-distribution/        ← CloudFormation custom resource (CloudFront)
 └── infrastructure/
-    ├── package.json
+    ├── package.json                    ← aws-cdk-lib 2.257, aws-cdk 2.1125
     ├── tsconfig.json
     ├── cdk.json
     └── lib/
-        └── certpath-stack.ts        ← CDK stack (full infrastructure)
+        └── certpath-stack.ts           ← CDK stack (full infrastructure)
 ```
 
 ## Key Data Shapes
@@ -129,7 +111,7 @@ aws-certpath/
 Set(["saa", "ccp"])  // ids from config/certifications.js
 ```
 
-### Analysis Response (from Bedrock Sonnet via Step Functions)
+### Analysis Response (from Bedrock Sonnet via durable orchestrator)
 ```js
 {
   rec: { cert, code, level, why, readiness, timeline },
@@ -137,36 +119,55 @@ Set(["saa", "ccp"])  // ids from config/certifications.js
   roadmap: [{ phase, title, weeks, topics, goal }],
   projects: [{ name, diff, svcs, desc, time }],
   examDomains: [{ domain, weight }],          // from official AWS exam guide
-  metadata: { enriched: true|false, certCode } // enriched=false if cache miss
+  metadata: { enriched: true|false, certCode }
 }
 ```
 
-### Execution Status (polling response)
+### Execution Status (polling response from certpath-executions DynamoDB)
 ```js
 {
   status: "RUNNING" | "SUCCEEDED" | "FAILED",
-  currentStep: "Identifying your certification path...",  // human-readable
-  result: { ...analysis } | null  // populated on SUCCEEDED
+  currentStep: "Analyzing your AWS knowledge map...",  // human-readable, updated by orchestrator
+  result: { ...analysis } | null,
+  error: string | null
 }
 ```
 
 ## AI Models (Amazon Bedrock)
 | Usage | Model | Bedrock cross-region ID |
 |---|---|---|
-| Cert classification (Step 1) | Claude Haiku 4.5 | `us.anthropic.claude-haiku-4-5-20251001-v1:0` |
+| Cert classification | Claude Haiku 4.5 | `us.anthropic.claude-haiku-4-5-20251001-v1:0` |
 | Exam guide extraction (cron) | Claude Haiku 4.5 | `us.anthropic.claude-haiku-4-5-20251001-v1:0` |
-| Final analysis (Step 3) | Claude Sonnet 4.6 | `us.anthropic.claude-sonnet-4-6-20251101-v1:0` |
+| Final analysis | Claude Sonnet 4.6 | `us.anthropic.claude-sonnet-4-6` |
 
-All Lambda roles use IAM `bedrock:InvokeModel` permissions. No API keys or Secrets Manager.
+All Lambda roles use IAM `bedrock:InvokeModel` with scoped model ARNs (wildcard region required for cross-region inference routing). No API keys.
+
+**Prompt caching**: `analyze-final` splits its system prompt at a `cachePoint` — the static exam guide block (per cert code) is cached by Bedrock, the dynamic role context is not. Saves ~85% latency on repeat requests for the same cert.
+
+## Orchestrator Design
+`analyze-orchestrator` uses `withDurableExecution` from `@aws/durable-execution-sdk-js`.
+It invokes the three activity Lambdas in sequence via `context.step()`, writes DynamoDB
+progress updates between steps, and writes the final SUCCEEDED/FAILED record.
+The orchestrator is invoked via its `live` alias (qualified ARN required by durable runtime).
+
+Activity functions (classify, fetch-docs, final) are pure compute — no DynamoDB side effects.
+Rate limiting (5-min cooldown) is enforced in `analyze-start` before the orchestrator fires.
+
+## Observability
+- **CloudWatch dashboard** `certpath`: analysis volume, token counts (Haiku/Sonnet), cache hit rate %, estimated cost/hr, avg cost per analysis
+- **CloudWatch alarms** → SNS → esaheki@gmail.com: orchestrator errors, API 5xx, populate failures, EventBridge DLQ depth
+- **X-Ray**: active tracing on all 9 Lambda functions
+- **Structured logs**: `{ level, message, ...ctx }` JSON on every Lambda — CloudWatch Logs Insights queryable
+- **Bedrock metric filters**: `CertPath/Bedrock` namespace with 8 metrics (input/output/cache tokens per function)
 
 ## Environment Variables
 Copy `.env.example` → `.env.local`. No `VITE_ANTHROPIC_API_KEY` needed.
-Both dev and prod use API Gateway (Step Functions everywhere).
+Both dev and prod use API Gateway.
 
 ## Commands
 ```bash
-npm install        # install dependencies
-npm run dev        # start dev server (localhost:5173) — requires AWS credentials
+npm install        # install frontend dependencies
+npm run dev        # start dev server (localhost:5173)
 npm run build      # production build → dist/
 npm run preview    # preview production build
 
@@ -175,6 +176,6 @@ npm install
 npx cdk bootstrap  # first time only
 npx cdk deploy     # deploy to AWS
 
-# After deploy: seed the exam guide cache
+# After first deploy: seed the exam guide cache
 aws lambda invoke --function-name certpath-populate-exam-guides /tmp/out.json
 ```
