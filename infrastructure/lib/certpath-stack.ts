@@ -695,6 +695,38 @@ export class CertpathStack extends cdk.Stack {
       }),
     )
 
+    // Row 5 — Average cost per analysis
+    // Fresh metric instances avoid CDK ID conflicts with metrics already bound to Row 4 expressions.
+    const avgCostExpr = (period: cdk.Duration, label: string) => new cloudwatch.MathExpression({
+      expression: 'IF(execs > 0, (cIn*0.0000008 + cOut*0.000004 + (fIn-fCR)*0.000003 + fOut*0.000015 + fCR*0.0000003 + fCW*0.000003375) / execs, 0)',
+      usingMetrics: {
+        execs: stateMachine.metric('ExecutionsStarted', { statistic: 'Sum', period }),
+        cIn:  new cloudwatch.Metric({ namespace: bedrockNs, metricName: 'ClassifyInputTokens',  statistic: 'Sum', period }),
+        cOut: new cloudwatch.Metric({ namespace: bedrockNs, metricName: 'ClassifyOutputTokens', statistic: 'Sum', period }),
+        fIn:  new cloudwatch.Metric({ namespace: bedrockNs, metricName: 'FinalInputTokens',     statistic: 'Sum', period }),
+        fOut: new cloudwatch.Metric({ namespace: bedrockNs, metricName: 'FinalOutputTokens',    statistic: 'Sum', period }),
+        fCR:  new cloudwatch.Metric({ namespace: bedrockNs, metricName: 'FinalCacheReadTokens', statistic: 'Sum', period }),
+        fCW:  new cloudwatch.Metric({ namespace: bedrockNs, metricName: 'FinalCacheWriteTokens',statistic: 'Sum', period }),
+      },
+      label,
+      period,
+    })
+
+    dashboard.addWidgets(
+      new cloudwatch.GraphWidget({
+        title: 'Average Cost per Analysis / hr  (USD)',
+        width: 12, height: 6,
+        left: [avgCostExpr(p1h, 'Avg cost per analysis (USD)')],
+        leftYAxis: { label: 'USD', showUnits: false },
+      }),
+      new cloudwatch.SingleValueWidget({
+        title: 'Average Cost per Analysis — 30-day rolling  (USD)',
+        width: 12, height: 6,
+        metrics: [avgCostExpr(p30d, 'Avg cost per analysis (30d, USD)')],
+        fullPrecision: true,
+      }),
+    )
+
     // ── Outputs ───────────────────────────────────────────────────────────────
 
     new cdk.CfnOutput(this, 'SiteUrl',          { value: 'https://esaheki.com/aws' })
