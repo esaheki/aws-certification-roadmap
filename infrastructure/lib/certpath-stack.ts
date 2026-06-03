@@ -413,10 +413,27 @@ export class CertpathStack extends cdk.Stack {
 
     // ── Frontend deployment ───────────────────────────────────────────────────
 
-    new s3deploy.BucketDeployment(this, 'DeployFrontend', {
-      sources: [s3deploy.Source.asset(path.join(__dirname, '../../dist'))],
+    // Hashed JS/CSS bundles — content-addressed by Vite, safe to cache for 1 year
+    new s3deploy.BucketDeployment(this, 'DeployAssets', {
+      sources: [s3deploy.Source.asset(path.join(__dirname, '../../dist/assets'))],
+      destinationBucket: bucket,
+      destinationKeyPrefix: 'aws/assets',
+      cacheControl: [
+        s3deploy.CacheControl.maxAge(cdk.Duration.days(365)),
+        s3deploy.CacheControl.fromString('immutable'),
+      ],
+      prune: false,
+    })
+
+    // index.html and non-hashed public files — must revalidate on every load
+    new s3deploy.BucketDeployment(this, 'DeployHtml', {
+      sources: [s3deploy.Source.asset(path.join(__dirname, '../../dist'), {
+        exclude: ['assets'],
+      })],
       destinationBucket: bucket,
       destinationKeyPrefix: 'aws',
+      cacheControl: [s3deploy.CacheControl.noCache()],
+      prune: false,
     })
 
     // ── Outputs ───────────────────────────────────────────────────────────────
