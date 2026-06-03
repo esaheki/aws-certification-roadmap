@@ -5,7 +5,8 @@ const bedrock = new BedrockRuntimeClient({ region: 'us-east-1' })
 const ddb = new DynamoDBClient({})
 const MODEL = 'us.anthropic.claude-sonnet-4-6'
 const log = {
-  warn: (msg, ctx = {}) => console.log(JSON.stringify({ level: 'WARN', message: msg, ...ctx })),
+  info:  (msg, ctx = {}) => console.log(JSON.stringify({ level: 'INFO',  message: msg, ...ctx })),
+  warn:  (msg, ctx = {}) => console.log(JSON.stringify({ level: 'WARN',  message: msg, ...ctx })),
 }
 
 const ROLE_PATHS = {
