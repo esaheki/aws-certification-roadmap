@@ -1,12 +1,10 @@
 import { BedrockRuntimeClient, ConverseCommand } from '@aws-sdk/client-bedrock-runtime'
-import { DynamoDBClient, UpdateItemCommand } from '@aws-sdk/client-dynamodb'
 
 const bedrock = new BedrockRuntimeClient({ region: 'us-east-1' })
-const ddb = new DynamoDBClient({})
 const MODEL = 'us.anthropic.claude-haiku-4-5-20251001-v1:0'
 const log = {
   info:  (msg, ctx = {}) => console.log(JSON.stringify({ level: 'INFO',  message: msg, ...ctx })),
-  warn:  (msg, ctx = {}) => console.log(JSON.stringify({ level: 'WARN',  message: msg, ...ctx })),
+  error: (msg, ctx = {}) => console.log(JSON.stringify({ level: 'ERROR', message: msg, ...ctx })),
 }
 
 // AWS-recommended certification paths by role (source: AWS Certification Paths guide 2025)
@@ -39,19 +37,7 @@ const CERTS = [
 ]
 
 export const handler = async (event) => {
-  const { executionId, kmap, certNames, total, role } = event
-
-  const updateStep = async (step) => {
-    if (!executionId || !process.env.EXECUTIONS_TABLE) return
-    await ddb.send(new UpdateItemCommand({
-      TableName: process.env.EXECUTIONS_TABLE,
-      Key: { pk: { S: executionId } },
-      UpdateExpression: 'SET currentStep = :step',
-      ExpressionAttributeValues: { ':step': { S: step } },
-    })).catch(e => log.warn('Step update failed', { error: e.message }))
-  }
-
-  await updateStep('Analyzing your AWS knowledge map...')
+  const { kmap, certNames, total, role } = event
 
   const kStr = Object.entries(kmap)
     .filter(([, v]) => v > 0)
@@ -120,6 +106,5 @@ Return ONLY JSON: {"certCode":"CHOSEN-CODE"}` }],
     outputTokens: usage.outputTokens ?? 0,
   })
 
-  await updateStep('Certification path identified...')
-  return { ...event, certCode }
+  return { certCode }
 }

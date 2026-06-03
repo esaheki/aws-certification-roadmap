@@ -7,8 +7,6 @@ import * as acm          from 'aws-cdk-lib/aws-certificatemanager'
 import * as lambda       from 'aws-cdk-lib/aws-lambda'
 import * as apigw        from 'aws-cdk-lib/aws-apigateway'
 import * as dynamodb     from 'aws-cdk-lib/aws-dynamodb'
-import * as sfn          from 'aws-cdk-lib/aws-stepfunctions'
-import * as tasks        from 'aws-cdk-lib/aws-stepfunctions-tasks'
 import * as events       from 'aws-cdk-lib/aws-events'
 import * as eventTargets from 'aws-cdk-lib/aws-events-targets'
 import * as iam          from 'aws-cdk-lib/aws-iam'
@@ -136,10 +134,8 @@ export class CertpathStack extends cdk.Stack {
       timeout: cdk.Duration.seconds(60),
       memorySize: 256,
       tracing: lambda.Tracing.ACTIVE,
-      environment: { EXECUTIONS_TABLE: executionsTable.tableName },
     })
     classifyFn.addToRolePolicy(bedrockPolicy)
-    executionsTable.grantWriteData(classifyFn)
 
     // ── Lambda: analyze-fetch-docs ───────────────────────────────────────────
 
@@ -151,13 +147,9 @@ export class CertpathStack extends cdk.Stack {
       timeout: cdk.Duration.seconds(30),
       memorySize: 128,
       tracing: lambda.Tracing.ACTIVE,
-      environment: {
-        EXAM_GUIDES_TABLE: examGuidesTable.tableName,
-        EXECUTIONS_TABLE:  executionsTable.tableName,
-      },
+      environment: { EXAM_GUIDES_TABLE: examGuidesTable.tableName },
     })
     examGuidesTable.grantReadData(fetchDocsFn)
-    executionsTable.grantWriteData(fetchDocsFn)
 
     // ── Lambda: analyze-final ────────────────────────────────────────────────
 
@@ -169,60 +161,42 @@ export class CertpathStack extends cdk.Stack {
       timeout: cdk.Duration.seconds(180),
       memorySize: 512,
       tracing: lambda.Tracing.ACTIVE,
-      environment: { EXECUTIONS_TABLE: executionsTable.tableName },
     })
     finalFn.addToRolePolicy(bedrockPolicy)
-    executionsTable.grantWriteData(finalFn)
 
-    // ── Step Functions state machine ─────────────────────────────────────────
+    // ── Lambda: analyze-orchestrator (durable) ───────────────────────────────
 
-    const classifyTask = new tasks.LambdaInvoke(this, 'ClassifyCert', {
-      lambdaFunction: classifyFn,
-      outputPath: '$.Payload',
-    })
-    classifyTask.addRetry({ errors: ['States.ALL'], maxAttempts: 3, interval: cdk.Duration.seconds(2), backoffRate: 2 })
-
-    const fetchDocsTask = new tasks.LambdaInvoke(this, 'FetchDocs', {
-      lambdaFunction: fetchDocsFn,
-      outputPath: '$.Payload',
-    })
-    fetchDocsTask.addRetry({ errors: ['States.ALL'], maxAttempts: 3, interval: cdk.Duration.seconds(2), backoffRate: 2 })
-
-    const finalTask = new tasks.LambdaInvoke(this, 'FinalAnalysis', {
-      lambdaFunction: finalFn,
-      outputPath: '$.Payload',
-    })
-    finalTask.addRetry({ errors: ['States.ALL'], maxAttempts: 3, interval: cdk.Duration.seconds(2), backoffRate: 2 })
-
-    // Catch handler: write a user-friendly FAILED status to DynamoDB, then fail the SM.
-    // Runs only after a step exhausts all retries — avoids users seeing a permanent spinner.
-    const writeFailedStatus = new tasks.DynamoUpdateItem(this, 'WriteFailedStatus', {
-      table: executionsTable,
-      key: { pk: tasks.DynamoAttributeValue.fromString(sfn.JsonPath.stringAt('$.executionId')) },
-      updateExpression: 'SET #s = :status, currentStep = :step',
-      expressionAttributeNames: { '#s': 'status' },
-      expressionAttributeValues: {
-        ':status': tasks.DynamoAttributeValue.fromString('FAILED'),
-        ':step':   tasks.DynamoAttributeValue.fromString('Analysis failed. Please try again.'),
+    const orchestratorFn = new lambda.Function(this, 'AnalyzeOrchestrator', {
+      functionName: 'certpath-analyze-orchestrator',
+      runtime: lambda.Runtime.NODEJS_24_X,
+      handler: 'index.handler',
+      code: lambda.Code.fromAsset(path.join(__dirname, '../../backend/functions/analyze-orchestrator')),
+      timeout: cdk.Duration.minutes(15),
+      memorySize: 256,
+      tracing: lambda.Tracing.ACTIVE,
+      durableConfig: {
+        executionTimeout: cdk.Duration.minutes(15),
+        retentionPeriod:  cdk.Duration.days(1),
       },
-      resultPath: sfn.JsonPath.DISCARD,
+      environment: {
+        EXECUTIONS_TABLE: executionsTable.tableName,
+        CLASSIFY_FN:      classifyFn.functionName,
+        FETCH_DOCS_FN:    fetchDocsFn.functionName,
+        FINAL_FN:         finalFn.functionName,
+      },
     })
-    writeFailedStatus.next(new sfn.Fail(this, 'AnalysisFailed', {
-      error: 'AnalysisFailed',
-      cause: 'Pipeline step failed after max retries',
-    }))
+    orchestratorFn.role?.addManagedPolicy(
+      iam.ManagedPolicy.fromAwsManagedPolicyName('service-role/AWSLambdaBasicDurableExecutionRolePolicy')
+    )
+    executionsTable.grantWriteData(orchestratorFn)
+    classifyFn.grantInvoke(orchestratorFn)
+    fetchDocsFn.grantInvoke(orchestratorFn)
+    finalFn.grantInvoke(orchestratorFn)
 
-    const catchOpts = { errors: ['States.ALL'], resultPath: '$.error' }
-    classifyTask.addCatch(writeFailedStatus, catchOpts)
-    fetchDocsTask.addCatch(writeFailedStatus, catchOpts)
-    finalTask.addCatch(writeFailedStatus, catchOpts)
-
-    const stateMachine = new sfn.StateMachine(this, 'CertpathStateMachine', {
-      stateMachineName: 'certpath-analysis',
-      definitionBody: sfn.DefinitionBody.fromChainable(
-        classifyTask.next(fetchDocsTask).next(finalTask)
-      ),
-      stateMachineType: sfn.StateMachineType.STANDARD,
+    // Alias provides the qualified ARN required by the durable execution runtime
+    const orchestratorAlias = new lambda.Alias(this, 'OrchestratorAlias', {
+      aliasName: 'live',
+      version: orchestratorFn.currentVersion,
     })
 
     // ── Lambda: analyze-start ────────────────────────────────────────────────
@@ -236,12 +210,12 @@ export class CertpathStack extends cdk.Stack {
       memorySize: 128,
       tracing: lambda.Tracing.ACTIVE,
       environment: {
-        STATE_MACHINE_ARN: stateMachine.stateMachineArn,
-        EXECUTIONS_TABLE:  executionsTable.tableName,
-        PROFILES_TABLE:    profilesTable.tableName,
+        ORCHESTRATOR_FN:  orchestratorAlias.functionArn,
+        EXECUTIONS_TABLE: executionsTable.tableName,
+        PROFILES_TABLE:   profilesTable.tableName,
       },
     })
-    stateMachine.grantStartExecution(analyzeStartFn)
+    orchestratorAlias.grantInvoke(analyzeStartFn)
     executionsTable.grantWriteData(analyzeStartFn)
     profilesTable.grantReadData(analyzeStartFn)
     profilesTable.grantWriteData(analyzeStartFn)
@@ -259,20 +233,6 @@ export class CertpathStack extends cdk.Stack {
       environment: { EXECUTIONS_TABLE: executionsTable.tableName },
     })
     executionsTable.grantReadData(analyzeStatusFn)
-
-    // ── Lambda: step-tracker ─────────────────────────────────────────────────
-
-    const stepTrackerFn = new lambda.Function(this, 'StepTracker', {
-      functionName: 'certpath-step-tracker',
-      runtime: lambda.Runtime.NODEJS_20_X,
-      handler: 'index.handler',
-      code: lambda.Code.fromAsset(path.join(__dirname, '../../backend/functions/step-tracker')),
-      timeout: cdk.Duration.seconds(30),
-      memorySize: 128,
-      tracing: lambda.Tracing.ACTIVE,
-      environment: { EXECUTIONS_TABLE: executionsTable.tableName },
-    })
-    executionsTable.grantWriteData(stepTrackerFn)
 
     // ── Lambda: populate-exam-guides ─────────────────────────────────────────
 
@@ -295,19 +255,6 @@ export class CertpathStack extends cdk.Stack {
       queueName: 'certpath-eventbridge-dlq',
       retentionPeriod: cdk.Duration.days(14),
     })
-
-    // ── EventBridge: SF state changes → step-tracker ─────────────────────────
-
-    const sfEventRule = new events.Rule(this, 'SFExecutionStateChange', {
-      eventPattern: {
-        source: ['aws.states'],
-        detailType: ['Step Functions Execution Status Change'],
-        detail: { stateMachineArn: [stateMachine.stateMachineArn] },
-      },
-    })
-    sfEventRule.addTarget(new eventTargets.LambdaFunction(stepTrackerFn, {
-      deadLetterQueue: eventBridgeDlq,
-    }))
 
     // ── EventBridge: monthly cron → populate-exam-guides ─────────────────────
 
@@ -512,11 +459,11 @@ export class CertpathStack extends cdk.Stack {
       treatMissingData: cloudwatch.TreatMissingData.NOT_BREACHING,
     }))
 
-    // 2. Step Functions execution failures
+    // 2. Orchestrator Lambda errors (replaces Step Functions execution failures alarm)
     addAlarm(new cloudwatch.Alarm(this, 'AnalysisExecutionsFailed', {
       alarmName: 'certpath-analysis-executions-failed',
-      alarmDescription: 'certpath-analysis Step Functions execution failed — users are seeing errors',
-      metric: stateMachine.metricFailed({ period: cdk.Duration.minutes(5), statistic: 'Sum' }),
+      alarmDescription: 'certpath-analyze-orchestrator Lambda errored — users are seeing analysis failures',
+      metric: orchestratorFn.metricErrors({ period: cdk.Duration.minutes(5), statistic: 'Sum' }),
       threshold: 1,
       evaluationPeriods: 1,
       comparisonOperator: cloudwatch.ComparisonOperator.GREATER_THAN_OR_EQUAL_TO_THRESHOLD,
@@ -641,10 +588,8 @@ export class CertpathStack extends cdk.Stack {
         title: 'Analysis Executions',
         width: 12, height: 6,
         left: [
-          stateMachine.metric('ExecutionsStarted', { statistic: 'Sum', period: p1h, label: 'Started' }),
-          stateMachine.metricSucceeded({ statistic: 'Sum', period: p1h, label: 'Succeeded' }),
-          stateMachine.metricFailed({ statistic: 'Sum', period: p1h, label: 'Failed' }),
-          stateMachine.metricTimedOut({ statistic: 'Sum', period: p1h, label: 'Timed out' }),
+          orchestratorFn.metricInvocations({ statistic: 'Sum', period: p1h, label: 'Invocations' }),
+          orchestratorFn.metricErrors({ statistic: 'Sum', period: p1h, label: 'Errors' }),
         ],
       }),
       new cloudwatch.GraphWidget({
@@ -710,7 +655,7 @@ export class CertpathStack extends cdk.Stack {
     const avgCostExpr = (period: cdk.Duration, label: string) => new cloudwatch.MathExpression({
       expression: 'IF(execs > 0, (cIn*0.0000008 + cOut*0.000004 + (fIn-fCR)*0.000003 + fOut*0.000015 + fCR*0.0000003 + fCW*0.000003375) / execs, 0)',
       usingMetrics: {
-        execs: stateMachine.metric('ExecutionsStarted', { statistic: 'Sum', period }),
+        execs: orchestratorFn.metric('Invocations', { statistic: 'Sum', period }),
         cIn:  new cloudwatch.Metric({ namespace: bedrockNs, metricName: 'ClassifyInputTokens',  statistic: 'Sum', period }),
         cOut: new cloudwatch.Metric({ namespace: bedrockNs, metricName: 'ClassifyOutputTokens', statistic: 'Sum', period }),
         fIn:  new cloudwatch.Metric({ namespace: bedrockNs, metricName: 'FinalInputTokens',     statistic: 'Sum', period }),
@@ -745,7 +690,7 @@ export class CertpathStack extends cdk.Stack {
     new cdk.CfnOutput(this, 'UserPoolClientId', { value: userPoolClient.userPoolClientId })
     new cdk.CfnOutput(this, 'CognitoAuthDomain',      { value: 'auth.esaheki.com' })
     new cdk.CfnOutput(this, 'CognitoCloudFrontAlias', { value: userPoolDomain.cloudFrontDomainName, description: 'Add CNAME: auth.esaheki.com → this value' })
-    new cdk.CfnOutput(this, 'StateMachineArn',  { value: stateMachine.stateMachineArn })
+    new cdk.CfnOutput(this, 'OrchestratorAliasArn', { value: orchestratorAlias.functionArn })
     new cdk.CfnOutput(this, 'FrontendBucketName', { value: bucket.bucketName })
   }
 }

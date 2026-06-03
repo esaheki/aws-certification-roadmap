@@ -1,12 +1,9 @@
 import { BedrockRuntimeClient, ConverseCommand } from '@aws-sdk/client-bedrock-runtime'
-import { DynamoDBClient, UpdateItemCommand } from '@aws-sdk/client-dynamodb'
 
 const bedrock = new BedrockRuntimeClient({ region: 'us-east-1' })
-const ddb = new DynamoDBClient({})
 const MODEL = 'us.anthropic.claude-sonnet-4-6'
 const log = {
   info:  (msg, ctx = {}) => console.log(JSON.stringify({ level: 'INFO',  message: msg, ...ctx })),
-  warn:  (msg, ctx = {}) => console.log(JSON.stringify({ level: 'WARN',  message: msg, ...ctx })),
 }
 
 const ROLE_PATHS = {
@@ -22,20 +19,8 @@ const ROLE_PATHS = {
 }
 
 export const handler = async (event) => {
-  const { executionId, kmap, certNames, certCode, examGuide, role } = event
+  const { kmap, certNames, certCode, examGuide, role } = event
   const enriched = examGuide && Array.isArray(examGuide.domains) && examGuide.domains.length > 0
-
-  const updateStep = async (step) => {
-    if (!executionId || !process.env.EXECUTIONS_TABLE) return
-    await ddb.send(new UpdateItemCommand({
-      TableName: process.env.EXECUTIONS_TABLE,
-      Key: { pk: { S: executionId } },
-      UpdateExpression: 'SET currentStep = :step',
-      ExpressionAttributeValues: { ':step': { S: step } },
-    })).catch(e => log.warn('Step update failed', { error: e.message }))
-  }
-
-  await updateStep('Generating your personalized roadmap...')
 
   const kStr = Object.entries(kmap)
     .filter(([, v]) => v > 0)
@@ -120,6 +105,5 @@ Provide 3-5 gaps, 3-5 roadmap phases, and 3 projects.`
     cacheWriteInputTokens: usage.cacheWriteInputTokens ?? 0,
   })
 
-  await updateStep('Almost there...')
   return result
 }

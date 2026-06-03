@@ -1,7 +1,8 @@
-import { SFNClient, StartExecutionCommand } from '@aws-sdk/client-sfn'
+import { LambdaClient, InvokeCommand } from '@aws-sdk/client-lambda'
 import { DynamoDBClient, PutItemCommand, GetItemCommand, UpdateItemCommand } from '@aws-sdk/client-dynamodb'
+import { randomUUID } from 'crypto'
 
-const sfn = new SFNClient({})
+const lambdaClient = new LambdaClient({})
 const ddb = new DynamoDBClient({})
 const ALLOWED_ORIGINS = new Set(['https://esaheki.com', 'http://localhost:5173'])
 const RATE_LIMIT_SECONDS = 300 // 5 minutes between analyses per user
@@ -39,24 +40,29 @@ export const handler = async (event) => {
       }
     }
 
-    const { executionArn } = await sfn.send(new StartExecutionCommand({
-      stateMachineArn: process.env.STATE_MACHINE_ARN,
-      input: JSON.stringify({ userId, kmap, certNames: certNames || [], total: total || 0, role: role || null }),
-    }))
-
-    const executionId = executionArn.split(':').pop()
+    // Generate execution ID locally (no longer derived from Step Functions ARN)
+    const executionId = randomUUID()
     const ttl = Math.floor(Date.now() / 1000) + 86400
 
+    // Write the initial execution record before starting the orchestrator so
+    // the polling endpoint always finds a record, even on fast polls.
     await ddb.send(new PutItemCommand({
       TableName: process.env.EXECUTIONS_TABLE,
       Item: {
         pk:          { S: executionId },
-        executionArn:{ S: executionArn },
         userId:      { S: userId },
         status:      { S: 'RUNNING' },
         currentStep: { S: 'Starting...' },
         ttl:         { N: ttl.toString() },
       },
+    }))
+
+    // Fire the durable orchestrator asynchronously. The alias ARN is a qualified
+    // ARN (required by the durable execution runtime).
+    await lambdaClient.send(new InvokeCommand({
+      FunctionName:   process.env.ORCHESTRATOR_FN,  // alias ARN — already qualified
+      InvocationType: 'Event',                       // fire-and-forget
+      Payload: JSON.stringify({ executionId, userId, kmap, certNames: certNames || [], total: total || 0, role: role || null }),
     }))
 
     // Stamp the time so the rate limit check works on the next request
