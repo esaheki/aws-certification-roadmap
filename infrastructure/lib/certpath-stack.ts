@@ -135,6 +135,7 @@ export class CertpathStack extends cdk.Stack {
       code: lambda.Code.fromAsset(path.join(__dirname, '../../backend/functions/analyze-classify')),
       timeout: cdk.Duration.seconds(60),
       memorySize: 256,
+      tracing: lambda.Tracing.ACTIVE,
       environment: { EXECUTIONS_TABLE: executionsTable.tableName },
     })
     classifyFn.addToRolePolicy(bedrockPolicy)
@@ -149,6 +150,7 @@ export class CertpathStack extends cdk.Stack {
       code: lambda.Code.fromAsset(path.join(__dirname, '../../backend/functions/analyze-fetch-docs')),
       timeout: cdk.Duration.seconds(30),
       memorySize: 128,
+      tracing: lambda.Tracing.ACTIVE,
       environment: {
         EXAM_GUIDES_TABLE: examGuidesTable.tableName,
         EXECUTIONS_TABLE:  executionsTable.tableName,
@@ -166,6 +168,7 @@ export class CertpathStack extends cdk.Stack {
       code: lambda.Code.fromAsset(path.join(__dirname, '../../backend/functions/analyze-final')),
       timeout: cdk.Duration.seconds(180),
       memorySize: 512,
+      tracing: lambda.Tracing.ACTIVE,
       environment: { EXECUTIONS_TABLE: executionsTable.tableName },
     })
     finalFn.addToRolePolicy(bedrockPolicy)
@@ -231,6 +234,7 @@ export class CertpathStack extends cdk.Stack {
       code: lambda.Code.fromAsset(path.join(__dirname, '../../backend/functions/analyze-start')),
       timeout: cdk.Duration.seconds(30),
       memorySize: 128,
+      tracing: lambda.Tracing.ACTIVE,
       environment: {
         STATE_MACHINE_ARN: stateMachine.stateMachineArn,
         EXECUTIONS_TABLE:  executionsTable.tableName,
@@ -251,6 +255,7 @@ export class CertpathStack extends cdk.Stack {
       code: lambda.Code.fromAsset(path.join(__dirname, '../../backend/functions/analyze-status')),
       timeout: cdk.Duration.seconds(30),
       memorySize: 128,
+      tracing: lambda.Tracing.ACTIVE,
       environment: { EXECUTIONS_TABLE: executionsTable.tableName },
     })
     executionsTable.grantReadData(analyzeStatusFn)
@@ -264,6 +269,7 @@ export class CertpathStack extends cdk.Stack {
       code: lambda.Code.fromAsset(path.join(__dirname, '../../backend/functions/step-tracker')),
       timeout: cdk.Duration.seconds(30),
       memorySize: 128,
+      tracing: lambda.Tracing.ACTIVE,
       environment: { EXECUTIONS_TABLE: executionsTable.tableName },
     })
     executionsTable.grantWriteData(stepTrackerFn)
@@ -277,6 +283,7 @@ export class CertpathStack extends cdk.Stack {
       code: lambda.Code.fromAsset(path.join(__dirname, '../../backend/functions/populate-exam-guides')),
       timeout: cdk.Duration.seconds(300),
       memorySize: 256,
+      tracing: lambda.Tracing.ACTIVE,
       environment: { EXAM_GUIDES_TABLE: examGuidesTable.tableName },
     })
     populateExamGuidesFn.addToRolePolicy(bedrockPolicy)
@@ -347,6 +354,7 @@ export class CertpathStack extends cdk.Stack {
       code: lambda.Code.fromAsset(path.join(__dirname, '../../backend/functions/profile-get')),
       timeout: cdk.Duration.seconds(15),
       memorySize: 128,
+      tracing: lambda.Tracing.ACTIVE,
       environment: { PROFILES_TABLE: profilesTable.tableName },
     })
     profilesTable.grantReadData(profileGetFn)
@@ -360,6 +368,7 @@ export class CertpathStack extends cdk.Stack {
       code: lambda.Code.fromAsset(path.join(__dirname, '../../backend/functions/profile-save')),
       timeout: cdk.Duration.seconds(15),
       memorySize: 128,
+      tracing: lambda.Tracing.ACTIVE,
       environment: { PROFILES_TABLE: profilesTable.tableName },
     })
     profilesTable.grantWriteData(profileSaveFn)
@@ -416,6 +425,7 @@ export class CertpathStack extends cdk.Stack {
       code: lambda.Code.fromAsset(path.join(__dirname, '../../backend/functions/update-distribution')),
       timeout: cdk.Duration.seconds(300),
       memorySize: 256,
+      tracing: lambda.Tracing.ACTIVE,
     })
 
     const distributionArn = `arn:aws:cloudfront::${this.account}:distribution/${EXISTING_DISTRIBUTION_ID}`
