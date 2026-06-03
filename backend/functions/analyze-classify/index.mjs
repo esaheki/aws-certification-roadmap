@@ -4,6 +4,9 @@ import { DynamoDBClient, UpdateItemCommand } from '@aws-sdk/client-dynamodb'
 const bedrock = new BedrockRuntimeClient({ region: 'us-east-1' })
 const ddb = new DynamoDBClient({})
 const MODEL = 'us.anthropic.claude-haiku-4-5-20251001-v1:0'
+const log = {
+  warn: (msg, ctx = {}) => console.log(JSON.stringify({ level: 'WARN', message: msg, ...ctx })),
+}
 
 // AWS-recommended certification paths by role (source: AWS Certification Paths guide 2025)
 // aiRecommended: certs AWS suggests alongside the main path for AI literacy
@@ -44,7 +47,7 @@ export const handler = async (event) => {
       Key: { pk: { S: executionId } },
       UpdateExpression: 'SET currentStep = :step',
       ExpressionAttributeValues: { ':step': { S: step } },
-    })).catch(e => console.warn('Step update failed:', e.message))
+    })).catch(e => log.warn('Step update failed', { error: e.message }))
   }
 
   await updateStep('Analyzing your AWS knowledge map...')

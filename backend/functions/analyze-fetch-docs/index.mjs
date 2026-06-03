@@ -1,6 +1,10 @@
 import { DynamoDBClient, GetItemCommand, UpdateItemCommand } from '@aws-sdk/client-dynamodb'
 
 const ddb = new DynamoDBClient({})
+const log = {
+  warn:  (msg, ctx = {}) => console.log(JSON.stringify({ level: 'WARN',  message: msg, ...ctx })),
+  error: (msg, ctx = {}) => console.log(JSON.stringify({ level: 'ERROR', message: msg, ...ctx })),
+}
 
 export const handler = async (event) => {
   const { executionId, certCode } = event
@@ -11,7 +15,7 @@ export const handler = async (event) => {
       Key: { pk: { S: executionId } },
       UpdateExpression: 'SET currentStep = :step',
       ExpressionAttributeValues: { ':step': { S: 'Loading official exam guide...' } },
-    })).catch(e => console.warn('Step update failed:', e.message))
+    })).catch(e => log.warn('Step update failed', { error: e.message }))
   }
 
   try {
@@ -28,7 +32,7 @@ export const handler = async (event) => {
 
     return { ...event, examGuide }
   } catch (e) {
-    console.error('Fetch docs error:', e)
+    log.error('Fetch docs error', { error: e.message, stack: e.stack })
     return { ...event, domains: [] }
   }
 }

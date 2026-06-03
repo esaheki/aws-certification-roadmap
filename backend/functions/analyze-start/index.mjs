@@ -5,6 +5,10 @@ const sfn = new SFNClient({})
 const ddb = new DynamoDBClient({})
 const ALLOWED_ORIGINS = new Set(['https://esaheki.com', 'http://localhost:5173'])
 const RATE_LIMIT_SECONDS = 300 // 5 minutes between analyses per user
+const log = {
+  warn:  (msg, ctx = {}) => console.log(JSON.stringify({ level: 'WARN',  message: msg, ...ctx })),
+  error: (msg, ctx = {}) => console.log(JSON.stringify({ level: 'ERROR', message: msg, ...ctx })),
+}
 
 export const handler = async (event) => {
   const origin = event.headers?.origin || event.headers?.Origin || ''
@@ -62,12 +66,12 @@ export const handler = async (event) => {
         Key: { pk: { S: userId } },
         UpdateExpression: 'SET lastAnalysisAt = :t',
         ExpressionAttributeValues: { ':t': { S: new Date().toISOString() } },
-      })).catch(e => console.warn('Failed to stamp lastAnalysisAt:', e.message))
+      })).catch(e => log.warn('Failed to stamp lastAnalysisAt', { error: e.message }))
     }
 
     return cors(200, { executionId }, origin)
   } catch (e) {
-    console.error(e)
+    log.error(e.message, { stack: e.stack })
     return cors(500, { error: 'Internal server error' }, origin)
   }
 }

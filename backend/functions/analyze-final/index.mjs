@@ -4,6 +4,9 @@ import { DynamoDBClient, UpdateItemCommand } from '@aws-sdk/client-dynamodb'
 const bedrock = new BedrockRuntimeClient({ region: 'us-east-1' })
 const ddb = new DynamoDBClient({})
 const MODEL = 'us.anthropic.claude-sonnet-4-6'
+const log = {
+  warn: (msg, ctx = {}) => console.log(JSON.stringify({ level: 'WARN', message: msg, ...ctx })),
+}
 
 const ROLE_PATHS = {
   'cloud-architect':    { label: 'Cloud Architect',     path: ['CLF-C02', 'SAA-C03', 'SAP-C02'],              aiRecommended: ['AIF-C01'] },
@@ -28,7 +31,7 @@ export const handler = async (event) => {
       Key: { pk: { S: executionId } },
       UpdateExpression: 'SET currentStep = :step',
       ExpressionAttributeValues: { ':step': { S: step } },
-    })).catch(e => console.warn('Step update failed:', e.message))
+    })).catch(e => log.warn('Step update failed', { error: e.message }))
   }
 
   await updateStep('Generating your personalized roadmap...')

@@ -4,6 +4,10 @@ import { DynamoDBClient, PutItemCommand } from '@aws-sdk/client-dynamodb'
 const bedrock = new BedrockRuntimeClient({ region: 'us-east-1' })
 const ddb = new DynamoDBClient({})
 const MODEL = 'us.anthropic.claude-haiku-4-5-20251001-v1:0'
+const log = {
+  info:  (msg, ctx = {}) => console.log(JSON.stringify({ level: 'INFO',  message: msg, ...ctx })),
+  error: (msg, ctx = {}) => console.log(JSON.stringify({ level: 'ERROR', message: msg, ...ctx })),
+}
 
 const CERT_LANDING_PAGES = {
   'AIF-C01': 'https://docs.aws.amazon.com/aws-certification/latest/ai-practitioner-01/ai-practitioner-01.html',
@@ -119,9 +123,9 @@ export const handler = async () => {
           ttl:       { N: ttl.toString() },
         },
       }))
-      console.log(`✓ ${certCode}: ${pageCount} pages, ${examGuide.domains.length} domains, ${examGuide.inScopeServices?.length ?? 0} services`)
+      log.info('Exam guide populated', { certCode, pageCount, domains: examGuide.domains.length, services: examGuide.inScopeServices?.length ?? 0 })
     } catch (e) {
-      console.error(`✗ ${certCode}: ${e.message}`)
+      log.error('Exam guide failed', { certCode, error: e.message })
     }
   }
 }

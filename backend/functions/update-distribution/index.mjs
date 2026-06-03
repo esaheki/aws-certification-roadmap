@@ -23,6 +23,11 @@ import {
 } from '@aws-sdk/client-cloudfront'
 
 const cf = new CloudFrontClient({ region: 'us-east-1' })
+const log = {
+  info:  (msg, ctx = {}) => console.log(JSON.stringify({ level: 'INFO',  message: msg, ...ctx })),
+  warn:  (msg, ctx = {}) => console.log(JSON.stringify({ level: 'WARN',  message: msg, ...ctx })),
+  error: (msg, ctx = {}) => console.log(JSON.stringify({ level: 'ERROR', message: msg, ...ctx })),
+}
 
 const ORIGIN_ID = 'CertpathS3Origin'
 const PATH_PATTERN = '/aws*'
@@ -38,7 +43,7 @@ const FUNCTION_CODE = `function handler(event) {
 }`
 
 export const handler = async (event) => {
-  console.log('Event:', JSON.stringify(event, null, 2))
+  log.info('Custom resource invoked', { requestType: RequestType, physicalResourceId: PhysicalResourceId })
   const { RequestType, ResourceProperties: p, PhysicalResourceId } = event
 
   try {
@@ -52,7 +57,7 @@ export const handler = async (event) => {
 
     return { PhysicalResourceId: `${p.DistributionId}-certpath` }
   } catch (e) {
-    console.error('Custom resource error:', e)
+    log.error('Custom resource error', { error: e.message, stack: e.stack })
     throw e
   }
 }
@@ -71,13 +76,13 @@ async function upsertFunction(name) {
       Name: name,
       IfMatch: created.ETag,
     }))
-    console.log('Created CloudFront Function:', name)
+    log.info('Created CloudFront Function', { name })
     return pub.FunctionSummary.FunctionMetadata.FunctionARN
   } catch (e) {
     if (e.name !== 'FunctionAlreadyExists') throw e
     // Function exists — return its live ARN
     const desc = await cf.send(new DescribeFunctionCommand({ Name: name, Stage: 'LIVE' }))
-    console.log('Using existing CloudFront Function:', name)
+    log.info('Using existing CloudFront Function', { name })
     return desc.FunctionSummary.FunctionMetadata.FunctionARN
   }
 }
@@ -136,7 +141,7 @@ async function upsertBehavior(distId, bucketDomain, oacId, fnArn) {
     IfMatch: ETag,
     DistributionConfig: cfg,
   }))
-  console.log('Distribution updated:', distId)
+  log.info('Distribution updated', { distId })
 }
 
 async function removeBehavior(distId, fnName) {
@@ -158,17 +163,17 @@ async function removeBehavior(distId, fnName) {
       IfMatch: ETag,
       DistributionConfig: cfg,
     }))
-    console.log('Removed CertPath behavior from distribution:', distId)
+    log.info('Removed CertPath behavior from distribution', { distId })
   } catch (e) {
-    console.warn('Could not remove behavior (may not exist):', e.message)
+    log.warn('Could not remove behavior (may not exist)', { error: e.message })
   }
 
   // Delete the CloudFront Function
   try {
     const desc = await cf.send(new DescribeFunctionCommand({ Name: fnName }))
     await cf.send(new DeleteFunctionCommand({ Name: fnName, IfMatch: desc.ETag }))
-    console.log('Deleted CloudFront Function:', fnName)
+    log.info('Deleted CloudFront Function', { fnName })
   } catch (e) {
-    console.warn('Could not delete function:', e.message)
+    log.warn('Could not delete function', { error: e.message })
   }
 }

@@ -2,6 +2,9 @@ import { DynamoDBClient, GetItemCommand } from '@aws-sdk/client-dynamodb'
 
 const ddb = new DynamoDBClient({})
 const ALLOWED_ORIGINS = new Set(['https://esaheki.com', 'http://localhost:5173'])
+const log = {
+  error: (msg, ctx = {}) => console.log(JSON.stringify({ level: 'ERROR', message: msg, ...ctx })),
+}
 
 export const handler = async (event) => {
   const origin = event.headers?.origin || event.headers?.Origin || ''
@@ -27,7 +30,7 @@ export const handler = async (event) => {
       analysisInputHash:  res.Item.analysisInputHash  ? res.Item.analysisInputHash.S              : null,
     }, origin)
   } catch (e) {
-    console.error(e)
+    log.error(e.message, { stack: e.stack })
     return cors(500, { error: 'Internal server error' }, origin)
   }
 }
