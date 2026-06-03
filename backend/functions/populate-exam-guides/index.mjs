@@ -102,6 +102,14 @@ ${content}
   const jsonMatch = text.match(/\{[\s\S]*\}/)
   if (!jsonMatch) throw new Error(`No JSON in extraction response`)
   const examGuide = JSON.parse(jsonMatch[0])
+
+  const usage = bedrockRes.usage ?? {}
+  log.info('Bedrock usage', {
+    fn: 'populate', model: MODEL, certCode,
+    inputTokens:  usage.inputTokens  ?? 0,
+    outputTokens: usage.outputTokens ?? 0,
+  })
+
   return { examGuide, pageCount: pages.length }
 }
 

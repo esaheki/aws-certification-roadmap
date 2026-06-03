@@ -112,6 +112,13 @@ Return ONLY JSON: {"certCode":"CHOSEN-CODE"}` }],
   if (!jsonMatch) throw new Error(`No JSON in classify response: ${text}`)
   const { certCode } = JSON.parse(jsonMatch[0])
 
+  const usage = res.usage ?? {}
+  log.info('Bedrock usage', {
+    fn: 'classify', model: MODEL, certCode,
+    inputTokens:  usage.inputTokens  ?? 0,
+    outputTokens: usage.outputTokens ?? 0,
+  })
+
   await updateStep('Certification path identified...')
   return { ...event, certCode }
 }

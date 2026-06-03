@@ -108,6 +108,17 @@ Provide 3-5 gaps, 3-5 roadmap phases, and 3 projects.`
   const text = res.output.message.content[0].text.trim()
   const jsonMatch = text.match(/\{[\s\S]*\}/)
   if (!jsonMatch) throw new Error(`No JSON in final response: ${text.slice(0, 200)}`)
+  const result = JSON.parse(jsonMatch[0])
+
+  const usage = res.usage ?? {}
+  log.info('Bedrock usage', {
+    fn: 'final', model: MODEL, certCode,
+    inputTokens:           usage.inputTokens           ?? 0,
+    outputTokens:          usage.outputTokens          ?? 0,
+    cacheReadInputTokens:  usage.cacheReadInputTokens  ?? 0,
+    cacheWriteInputTokens: usage.cacheWriteInputTokens ?? 0,
+  })
+
   await updateStep('Almost there...')
-  return JSON.parse(jsonMatch[0])
+  return result
 }

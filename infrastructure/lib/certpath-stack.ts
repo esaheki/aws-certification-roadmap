@@ -20,6 +20,7 @@ import * as sns                from 'aws-cdk-lib/aws-sns'
 import * as snsSubscriptions   from 'aws-cdk-lib/aws-sns-subscriptions'
 import * as cloudwatch         from 'aws-cdk-lib/aws-cloudwatch'
 import * as cloudwatchActions  from 'aws-cdk-lib/aws-cloudwatch-actions'
+import * as logs               from 'aws-cdk-lib/aws-logs'
 import * as path               from 'path'
 
 // The existing CloudFront distribution serving esaheki.com.
@@ -536,6 +537,163 @@ export class CertpathStack extends cdk.Stack {
       comparisonOperator: cloudwatch.ComparisonOperator.GREATER_THAN_OR_EQUAL_TO_THRESHOLD,
       treatMissingData: cloudwatch.TreatMissingData.NOT_BREACHING,
     }))
+
+    // ── Bedrock metric filters ────────────────────────────────────────────────
+
+    const bedrockNs = 'CertPath/Bedrock'
+    const usagePattern = logs.FilterPattern.stringValue('$.message', '=', 'Bedrock usage')
+
+    const classifyLg = logs.LogGroup.fromLogGroupName(this, 'ClassifyLg', '/aws/lambda/certpath-analyze-classify')
+    const finalLg    = logs.LogGroup.fromLogGroupName(this, 'FinalLg',    '/aws/lambda/certpath-analyze-final')
+    const populateLg = logs.LogGroup.fromLogGroupName(this, 'PopulateLg', '/aws/lambda/certpath-populate-exam-guides')
+
+    const mkFilter = (id: string, lg: logs.ILogGroup, metricName: string, field: string) =>
+      new logs.MetricFilter(this, id, {
+        logGroup: lg,
+        filterPattern: usagePattern,
+        metricNamespace: bedrockNs,
+        metricName,
+        metricValue: field,
+        defaultValue: 0,
+      })
+
+    mkFilter('ClassifyInputTokens',  classifyLg, 'ClassifyInputTokens',  '$.inputTokens')
+    mkFilter('ClassifyOutputTokens', classifyLg, 'ClassifyOutputTokens', '$.outputTokens')
+    mkFilter('FinalInputTokens',     finalLg,    'FinalInputTokens',     '$.inputTokens')
+    mkFilter('FinalOutputTokens',    finalLg,    'FinalOutputTokens',    '$.outputTokens')
+    mkFilter('FinalCacheReadTokens', finalLg,    'FinalCacheReadTokens', '$.cacheReadInputTokens')
+    mkFilter('FinalCacheWriteTokens',finalLg,    'FinalCacheWriteTokens','$.cacheWriteInputTokens')
+    mkFilter('PopulateInputTokens',  populateLg, 'PopulateInputTokens',  '$.inputTokens')
+    mkFilter('PopulateOutputTokens', populateLg, 'PopulateOutputTokens', '$.outputTokens')
+
+    // ── CloudWatch dashboard ──────────────────────────────────────────────────
+
+    const p1h  = cdk.Duration.hours(1)
+    const p30d = cdk.Duration.days(30)
+
+    const bm = (metricName: string, period: cdk.Duration, label: string) =>
+      new cloudwatch.Metric({ namespace: bedrockNs, metricName, statistic: 'Sum', period, label })
+
+    // Hourly token metrics (for graphs)
+    const classifyIn  = bm('ClassifyInputTokens',  p1h, 'Input (Haiku classify)')
+    const classifyOut = bm('ClassifyOutputTokens', p1h, 'Output (Haiku classify)')
+    const finalIn     = bm('FinalInputTokens',     p1h, 'Input (Sonnet final)')
+    const finalOut    = bm('FinalOutputTokens',    p1h, 'Output (Sonnet final)')
+    const finalCacheR = bm('FinalCacheReadTokens', p1h, 'Cache read (Sonnet)')
+    const finalCacheW = bm('FinalCacheWriteTokens',p1h, 'Cache write (Sonnet)')
+
+    // Estimated cost per hour — metric math
+    const classifyCostH = new cloudwatch.MathExpression({
+      expression: 'cIn*0.0000008 + cOut*0.000004',
+      usingMetrics: { cIn: classifyIn, cOut: classifyOut },
+      label: 'Classify cost (USD)',
+      period: p1h,
+    })
+    const finalCostH = new cloudwatch.MathExpression({
+      expression: '(fIn-fCR)*0.000003 + fOut*0.000015 + fCR*0.0000003 + fCW*0.000003375',
+      usingMetrics: { fIn: finalIn, fOut: finalOut, fCR: finalCacheR, fCW: finalCacheW },
+      label: 'Final analysis cost (USD)',
+      period: p1h,
+    })
+
+    // Cache hit rate — metric math
+    const cacheHitPct = new cloudwatch.MathExpression({
+      expression: 'IF(fIn > 0, 100 * fCR / fIn, 0)',
+      usingMetrics: { fIn: finalIn, fCR: finalCacheR },
+      label: 'Cache hit rate (%)',
+      period: p1h,
+    })
+
+    // 30-day rolling totals for single-value widgets
+    const monthlyCost = new cloudwatch.MathExpression({
+      expression: '(cIn*0.0000008 + cOut*0.000004) + ((fIn-fCR)*0.000003 + fOut*0.000015 + fCR*0.0000003 + fCW*0.000003375)',
+      usingMetrics: {
+        cIn:  bm('ClassifyInputTokens',  p30d, ''),
+        cOut: bm('ClassifyOutputTokens', p30d, ''),
+        fIn:  bm('FinalInputTokens',     p30d, ''),
+        fOut: bm('FinalOutputTokens',    p30d, ''),
+        fCR:  bm('FinalCacheReadTokens', p30d, ''),
+        fCW:  bm('FinalCacheWriteTokens',p30d, ''),
+      },
+      label: 'Est. monthly cost (USD)',
+      period: p30d,
+    })
+    const monthlyCacheTokensSaved = bm('FinalCacheReadTokens', p30d, 'Cache tokens saved (30d)')
+
+    const dashboard = new cloudwatch.Dashboard(this, 'CertpathDashboard', {
+      dashboardName: 'certpath',
+      defaultInterval: cdk.Duration.days(7),
+    })
+
+    // Row 1 — Analysis activity
+    dashboard.addWidgets(
+      new cloudwatch.GraphWidget({
+        title: 'Analysis Executions',
+        width: 12, height: 6,
+        left: [
+          stateMachine.metric('ExecutionsStarted', { statistic: 'Sum', period: p1h, label: 'Started' }),
+          stateMachine.metricSucceeded({ statistic: 'Sum', period: p1h, label: 'Succeeded' }),
+          stateMachine.metricFailed({ statistic: 'Sum', period: p1h, label: 'Failed' }),
+          stateMachine.metricTimedOut({ statistic: 'Sum', period: p1h, label: 'Timed out' }),
+        ],
+      }),
+      new cloudwatch.GraphWidget({
+        title: 'API Gateway Requests',
+        width: 12, height: 6,
+        left: [api.metricCount({ statistic: 'Sum', period: p1h, label: 'Total' })],
+        right: [
+          api.metricServerError({ statistic: 'Sum', period: p1h, label: '5xx' }),
+          api.metricClientError({ statistic: 'Sum', period: p1h, label: '4xx' }),
+        ],
+      }),
+    )
+
+    // Row 2 — Token consumption
+    dashboard.addWidgets(
+      new cloudwatch.GraphWidget({
+        title: 'Classify Tokens / hr  (Haiku)',
+        width: 12, height: 6,
+        left: [classifyIn, classifyOut],
+      }),
+      new cloudwatch.GraphWidget({
+        title: 'Final Analysis Tokens / hr  (Sonnet)',
+        width: 12, height: 6,
+        left: [finalIn, finalOut, finalCacheR, finalCacheW],
+      }),
+    )
+
+    // Row 3 — Cache effectiveness
+    dashboard.addWidgets(
+      new cloudwatch.GraphWidget({
+        title: 'Prompt Cache Hit Rate — Sonnet',
+        width: 12, height: 6,
+        left: [cacheHitPct],
+        leftYAxis: { min: 0, max: 100, label: '%', showUnits: false },
+      }),
+      new cloudwatch.SingleValueWidget({
+        title: 'Cache Tokens Saved (30-day rolling)',
+        width: 12, height: 6,
+        metrics: [monthlyCacheTokensSaved],
+        fullPrecision: false,
+      }),
+    )
+
+    // Row 4 — Estimated cost
+    dashboard.addWidgets(
+      new cloudwatch.GraphWidget({
+        title: 'Estimated Bedrock Cost / hr  (USD)',
+        width: 12, height: 6,
+        left: [classifyCostH, finalCostH],
+        stacked: true,
+        leftYAxis: { label: 'USD', showUnits: false },
+      }),
+      new cloudwatch.SingleValueWidget({
+        title: 'Estimated Monthly Cost — 30-day rolling  (USD)',
+        width: 12, height: 6,
+        metrics: [monthlyCost],
+        fullPrecision: true,
+      }),
+    )
 
     // ── Outputs ───────────────────────────────────────────────────────────────
 
