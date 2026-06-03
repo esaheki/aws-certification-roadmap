@@ -12,10 +12,15 @@ import * as tasks        from 'aws-cdk-lib/aws-stepfunctions-tasks'
 import * as events       from 'aws-cdk-lib/aws-events'
 import * as eventTargets from 'aws-cdk-lib/aws-events-targets'
 import * as iam          from 'aws-cdk-lib/aws-iam'
-import * as cloudfront   from 'aws-cdk-lib/aws-cloudfront'
-import * as cr           from 'aws-cdk-lib/custom-resources'
-import * as ssm          from 'aws-cdk-lib/aws-ssm'
-import * as path         from 'path'
+import * as cloudfront         from 'aws-cdk-lib/aws-cloudfront'
+import * as cr                 from 'aws-cdk-lib/custom-resources'
+import * as ssm                from 'aws-cdk-lib/aws-ssm'
+import * as sqs                from 'aws-cdk-lib/aws-sqs'
+import * as sns                from 'aws-cdk-lib/aws-sns'
+import * as snsSubscriptions   from 'aws-cdk-lib/aws-sns-subscriptions'
+import * as cloudwatch         from 'aws-cdk-lib/aws-cloudwatch'
+import * as cloudwatchActions  from 'aws-cdk-lib/aws-cloudwatch-actions'
+import * as path               from 'path'
 
 // The existing CloudFront distribution serving esaheki.com.
 // Managed by a separate CDK stack — we add a /aws* behavior via Custom Resource.
@@ -276,6 +281,13 @@ export class CertpathStack extends cdk.Stack {
     populateExamGuidesFn.addToRolePolicy(bedrockPolicy)
     examGuidesTable.grantWriteData(populateExamGuidesFn)
 
+    // ── EventBridge DLQ — catches failed invocations from both rules ─────────
+
+    const eventBridgeDlq = new sqs.Queue(this, 'EventBridgeDlq', {
+      queueName: 'certpath-eventbridge-dlq',
+      retentionPeriod: cdk.Duration.days(14),
+    })
+
     // ── EventBridge: SF state changes → step-tracker ─────────────────────────
 
     const sfEventRule = new events.Rule(this, 'SFExecutionStateChange', {
@@ -285,14 +297,18 @@ export class CertpathStack extends cdk.Stack {
         detail: { stateMachineArn: [stateMachine.stateMachineArn] },
       },
     })
-    sfEventRule.addTarget(new eventTargets.LambdaFunction(stepTrackerFn))
+    sfEventRule.addTarget(new eventTargets.LambdaFunction(stepTrackerFn, {
+      deadLetterQueue: eventBridgeDlq,
+    }))
 
     // ── EventBridge: monthly cron → populate-exam-guides ─────────────────────
 
     const cronRule = new events.Rule(this, 'MonthlyExamGuideRefresh', {
       schedule: events.Schedule.cron({ minute: '0', hour: '0', day: '1', month: '*', year: '*' }),
     })
-    cronRule.addTarget(new eventTargets.LambdaFunction(populateExamGuidesFn))
+    cronRule.addTarget(new eventTargets.LambdaFunction(populateExamGuidesFn, {
+      deadLetterQueue: eventBridgeDlq,
+    }))
 
     // ── API Gateway ───────────────────────────────────────────────────────────
 
@@ -458,6 +474,68 @@ export class CertpathStack extends cdk.Stack {
       cacheControl: [s3deploy.CacheControl.noCache()],
       prune: false,
     })
+
+    // ── CloudWatch alarms ─────────────────────────────────────────────────────
+
+    const alarmTopic = new sns.Topic(this, 'AlarmTopic', {
+      topicName: 'certpath-alarms',
+    })
+    alarmTopic.addSubscription(new snsSubscriptions.EmailSubscription('esaheki@gmail.com'))
+
+    const alarmAction = new cloudwatchActions.SnsAction(alarmTopic)
+
+    const addAlarm = (alarm: cloudwatch.Alarm) => {
+      alarm.addAlarmAction(alarmAction)
+      alarm.addOkAction(alarmAction)
+      return alarm
+    }
+
+    // 1. populate-exam-guides Lambda errors (evaluated once a day — function runs monthly)
+    addAlarm(new cloudwatch.Alarm(this, 'PopulateExamGuidesErrors', {
+      alarmName: 'certpath-populate-exam-guides-errors',
+      alarmDescription: 'populate-exam-guides had Lambda errors — exam guide cache may be stale for affected certs',
+      metric: populateExamGuidesFn.metricErrors({ period: cdk.Duration.days(1), statistic: 'Sum' }),
+      threshold: 1,
+      evaluationPeriods: 1,
+      comparisonOperator: cloudwatch.ComparisonOperator.GREATER_THAN_OR_EQUAL_TO_THRESHOLD,
+      treatMissingData: cloudwatch.TreatMissingData.NOT_BREACHING,
+    }))
+
+    // 2. Step Functions execution failures
+    addAlarm(new cloudwatch.Alarm(this, 'AnalysisExecutionsFailed', {
+      alarmName: 'certpath-analysis-executions-failed',
+      alarmDescription: 'certpath-analysis Step Functions execution failed — users are seeing errors',
+      metric: stateMachine.metricFailed({ period: cdk.Duration.minutes(5), statistic: 'Sum' }),
+      threshold: 1,
+      evaluationPeriods: 1,
+      comparisonOperator: cloudwatch.ComparisonOperator.GREATER_THAN_OR_EQUAL_TO_THRESHOLD,
+      treatMissingData: cloudwatch.TreatMissingData.NOT_BREACHING,
+    }))
+
+    // 3. API Gateway 5xx errors
+    addAlarm(new cloudwatch.Alarm(this, 'ApiGateway5xx', {
+      alarmName: 'certpath-api-5xx',
+      alarmDescription: 'certpath-api has elevated 5xx errors',
+      metric: api.metricServerError({ period: cdk.Duration.minutes(5), statistic: 'Sum' }),
+      threshold: 5,
+      evaluationPeriods: 1,
+      comparisonOperator: cloudwatch.ComparisonOperator.GREATER_THAN_OR_EQUAL_TO_THRESHOLD,
+      treatMissingData: cloudwatch.TreatMissingData.NOT_BREACHING,
+    }))
+
+    // 4. EventBridge DLQ depth (step-tracker or populate-exam-guides invocations silently failing)
+    addAlarm(new cloudwatch.Alarm(this, 'EventBridgeDlqDepth', {
+      alarmName: 'certpath-eventbridge-dlq-depth',
+      alarmDescription: 'EventBridge DLQ has messages — step-tracker or populate-exam-guides invocations are being dropped',
+      metric: eventBridgeDlq.metricApproximateNumberOfMessagesVisible({
+        period: cdk.Duration.minutes(5),
+        statistic: 'Maximum',
+      }),
+      threshold: 1,
+      evaluationPeriods: 1,
+      comparisonOperator: cloudwatch.ComparisonOperator.GREATER_THAN_OR_EQUAL_TO_THRESHOLD,
+      treatMissingData: cloudwatch.TreatMissingData.NOT_BREACHING,
+    }))
 
     // ── Outputs ───────────────────────────────────────────────────────────────
 
