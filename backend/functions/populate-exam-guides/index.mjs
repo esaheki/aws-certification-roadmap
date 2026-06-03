@@ -105,27 +105,53 @@ ${content}
   return { examGuide, pageCount: pages.length }
 }
 
+const CONCURRENCY = 3
+
+async function fetchAndSave(certCode, landingUrl, ttl, fetchedAt) {
+  const { examGuide, pageCount } = await processCert(certCode, landingUrl)
+  await ddb.send(new PutItemCommand({
+    TableName: process.env.EXAM_GUIDES_TABLE,
+    Item: {
+      pk:        { S: certCode },
+      examGuide: { S: JSON.stringify(examGuide) },
+      domains:   { S: JSON.stringify(examGuide.domains) },
+      pageCount: { N: pageCount.toString() },
+      fetchedAt: { S: fetchedAt },
+      ttl:       { N: ttl.toString() },
+    },
+  }))
+  return { certCode, pageCount, domains: examGuide.domains.length, services: examGuide.inScopeServices?.length ?? 0 }
+}
+
 export const handler = async () => {
   const ttl = Math.floor(Date.now() / 1000) + 45 * 24 * 3600
   const fetchedAt = new Date().toISOString()
+  const entries = Object.entries(CERT_LANDING_PAGES)
 
-  for (const [certCode, landingUrl] of Object.entries(CERT_LANDING_PAGES)) {
-    try {
-      const { examGuide, pageCount } = await processCert(certCode, landingUrl)
-      await ddb.send(new PutItemCommand({
-        TableName: process.env.EXAM_GUIDES_TABLE,
-        Item: {
-          pk:        { S: certCode },
-          examGuide: { S: JSON.stringify(examGuide) },
-          domains:   { S: JSON.stringify(examGuide.domains) },
-          pageCount: { N: pageCount.toString() },
-          fetchedAt: { S: fetchedAt },
-          ttl:       { N: ttl.toString() },
-        },
-      }))
-      log.info('Exam guide populated', { certCode, pageCount, domains: examGuide.domains.length, services: examGuide.inScopeServices?.length ?? 0 })
-    } catch (e) {
-      log.error('Exam guide failed', { certCode, error: e.message })
-    }
+  const succeeded = []
+  const failedCerts = []
+
+  for (let i = 0; i < entries.length; i += CONCURRENCY) {
+    const chunk = entries.slice(i, i + CONCURRENCY)
+    const results = await Promise.allSettled(
+      chunk.map(([certCode, landingUrl]) => fetchAndSave(certCode, landingUrl, ttl, fetchedAt))
+    )
+    results.forEach((result, j) => {
+      const certCode = chunk[j][0]
+      if (result.status === 'fulfilled') {
+        succeeded.push(result.value)
+        log.info('Exam guide populated', result.value)
+      } else {
+        failedCerts.push(certCode)
+        log.error('Exam guide failed', { certCode, error: result.reason?.message })
+      }
+    })
   }
+
+  log.info('Exam guide refresh complete', {
+    total: entries.length,
+    succeeded: succeeded.length,
+    failed: failedCerts.length,
+    failedCerts,
+  })
 }

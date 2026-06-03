@@ -158,7 +158,7 @@ export class CertpathStack extends cdk.Stack {
       runtime: lambda.Runtime.NODEJS_20_X,
       handler: 'index.handler',
       code: lambda.Code.fromAsset(path.join(__dirname, '../../backend/functions/analyze-final')),
-      timeout: cdk.Duration.seconds(120),
+      timeout: cdk.Duration.seconds(180),
       memorySize: 512,
       environment: { EXECUTIONS_TABLE: executionsTable.tableName },
     })
@@ -184,6 +184,29 @@ export class CertpathStack extends cdk.Stack {
       outputPath: '$.Payload',
     })
     finalTask.addRetry({ errors: ['States.ALL'], maxAttempts: 3, interval: cdk.Duration.seconds(2), backoffRate: 2 })
+
+    // Catch handler: write a user-friendly FAILED status to DynamoDB, then fail the SM.
+    // Runs only after a step exhausts all retries — avoids users seeing a permanent spinner.
+    const writeFailedStatus = new tasks.DynamoUpdateItem(this, 'WriteFailedStatus', {
+      table: executionsTable,
+      key: { pk: tasks.DynamoAttributeValue.fromString(sfn.JsonPath.stringAt('$.executionId')) },
+      updateExpression: 'SET #s = :status, currentStep = :step',
+      expressionAttributeNames: { '#s': 'status' },
+      expressionAttributeValues: {
+        ':status': tasks.DynamoAttributeValue.fromString('FAILED'),
+        ':step':   tasks.DynamoAttributeValue.fromString('Analysis failed. Please try again.'),
+      },
+      resultPath: sfn.JsonPath.DISCARD,
+    })
+    writeFailedStatus.next(new sfn.Fail(this, 'AnalysisFailed', {
+      error: 'AnalysisFailed',
+      cause: 'Pipeline step failed after max retries',
+    }))
+
+    const catchOpts = { errors: ['States.ALL'], resultPath: '$.error' }
+    classifyTask.addCatch(writeFailedStatus, catchOpts)
+    fetchDocsTask.addCatch(writeFailedStatus, catchOpts)
+    finalTask.addCatch(writeFailedStatus, catchOpts)
 
     const stateMachine = new sfn.StateMachine(this, 'CertpathStateMachine', {
       stateMachineName: 'certpath-analysis',
