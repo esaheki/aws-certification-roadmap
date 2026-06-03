@@ -5,7 +5,8 @@ const bedrock = new BedrockRuntimeClient({ region: 'us-east-1' })
 const ddb = new DynamoDBClient({})
 const MODEL = 'us.anthropic.claude-haiku-4-5-20251001-v1:0'
 const log = {
-  warn: (msg, ctx = {}) => console.log(JSON.stringify({ level: 'WARN', message: msg, ...ctx })),
+  info:  (msg, ctx = {}) => console.log(JSON.stringify({ level: 'INFO',  message: msg, ...ctx })),
+  warn:  (msg, ctx = {}) => console.log(JSON.stringify({ level: 'WARN',  message: msg, ...ctx })),
 }
 
 // AWS-recommended certification paths by role (source: AWS Certification Paths guide 2025)
