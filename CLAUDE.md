@@ -155,7 +155,7 @@ Rate limiting (5-min cooldown) is enforced in `analyze-start` before the orchest
 
 ## Observability
 - **CloudWatch dashboard** `certpath`: analysis volume, token counts (Haiku/Sonnet), cache hit rate %, estimated cost/hr, avg cost per analysis
-- **CloudWatch alarms** → SNS → esaheki@gmail.com: orchestrator errors, API 5xx, populate failures, EventBridge DLQ depth
+- **CloudWatch alarms** → SNS email: orchestrator errors, API 5xx, populate failures, EventBridge DLQ depth
 - **X-Ray**: active tracing on all 9 Lambda functions
 - **Structured logs**: `{ level, message, ...ctx }` JSON on every Lambda — CloudWatch Logs Insights queryable
 - **Bedrock metric filters**: `CertPath/Bedrock` namespace with 8 metrics (input/output/cache tokens per function)
