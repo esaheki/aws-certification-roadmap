@@ -66,6 +66,10 @@ All Bedrock calls use IAM `bedrock:InvokeModel` with scoped model ARNs. No `ANTH
 
 An EventBridge cron fires on the 1st of each month, scrapes the official AWS exam guide pages, and runs them through Haiku to extract structured domain + weight data. This is stored in `certpath-examguides` (DynamoDB). The analysis pipeline reads this cache in step 2 — the final Sonnet call is always grounded in official exam content, not hallucinated domain names.
 
+### GitHub Actions CI/CD with OIDC
+
+Every PR runs lint → build → `cdk diff` as a gate. Merges to main trigger `cdk deploy` automatically. No long-lived AWS credentials in GitHub — the pipeline assumes a scoped IAM role (`certpath-github-actions`) via OIDC, which in turn chains into the CDK bootstrap deployer roles. The role ARN is stored as a GitHub repository variable, not a secret.
+
 ### Full observability stack
 
 - **CloudWatch dashboard** (`certpath`): analysis volume, input/output/cache tokens per model, Bedrock cache hit rate %, estimated cost/hr, avg cost per analysis
