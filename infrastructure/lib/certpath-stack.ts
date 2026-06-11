@@ -682,7 +682,36 @@ export class CertpathStack extends cdk.Stack {
       }),
     )
 
+    // ── GitHub Actions OIDC deployer ──────────────────────────────────────────
+
+    const githubOidc = new iam.OpenIdConnectProvider(this, 'GitHubOidc', {
+      url: 'https://token.actions.githubusercontent.com',
+      clientIds: ['sts.amazonaws.com'],
+    })
+
+    const githubRole = new iam.Role(this, 'GitHubActionsRole', {
+      roleName: 'certpath-github-actions',
+      assumedBy: new iam.WebIdentityPrincipal(githubOidc.openIdConnectProviderArn, {
+        StringEquals: { 'token.actions.githubusercontent.com:aud': 'sts.amazonaws.com' },
+        StringLike:   { 'token.actions.githubusercontent.com:sub': 'repo:esaheki/aws-certification-roadmap:*' },
+      }),
+      inlinePolicies: {
+        CdkBootstrapAssume: new iam.PolicyDocument({
+          statements: [new iam.PolicyStatement({
+            actions:   ['sts:AssumeRole'],
+            resources: [`arn:aws:iam::${this.account}:role/cdk-*`],
+          })],
+        }),
+      },
+      description: 'GitHub Actions OIDC deployer — assumes CDK bootstrap roles only',
+    })
+
     // ── Outputs ───────────────────────────────────────────────────────────────
+
+    new cdk.CfnOutput(this, 'GitHubActionsRoleArn', {
+      value: githubRole.roleArn,
+      description: 'Set as AWS_DEPLOY_ROLE_ARN repository variable in GitHub Settings → Variables',
+    })
 
     new cdk.CfnOutput(this, 'SiteUrl',          { value: 'https://esaheki.com/aws' })
     new cdk.CfnOutput(this, 'ApiGatewayURL',    { value: api.url })
