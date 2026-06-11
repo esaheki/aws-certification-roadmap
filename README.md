@@ -21,6 +21,20 @@ Your profile is persisted in DynamoDB and restored on every login, so the app st
 
 ---
 
+## Screenshots
+
+| Step 1 — Knowledge Map | Step 2 — Your Certifications |
+|---|---|
+| ![Knowledge Map](docs/step1.png) | ![Certifications](docs/step2.png) |
+| Rate proficiency across 100+ AWS services, grouped by category. | Mark certs you already hold and select your target role. |
+
+| Step 3 — AI Pipeline Running | Step 4 — Your Path |
+|---|---|
+| ![AI pipeline progress](docs/step3.png) | ![Recommendation result](docs/step4.png) |
+| Real-time progress as the durable orchestrator runs classify → fetch exam docs → generate analysis. | Cert recommendation with readiness %, timeline, knowledge gaps, study roadmap, and hands-on projects. |
+
+---
+
 ## Architecture highlights
 
 This project was intentionally over-engineered relative to its scope. The goal was to explore production patterns — durable orchestration, IAM-only AI auth, prompt caching, Well-Architected hardening — in a real end-to-end system.
