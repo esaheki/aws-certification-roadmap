@@ -684,10 +684,11 @@ export class CertpathStack extends cdk.Stack {
 
     // ── GitHub Actions OIDC deployer ──────────────────────────────────────────
 
-    const githubOidc = new iam.OpenIdConnectProvider(this, 'GitHubOidc', {
-      url: 'https://token.actions.githubusercontent.com',
-      clientIds: ['sts.amazonaws.com'],
-    })
+    // Provider already exists account-wide; import rather than create
+    const githubOidc = iam.OpenIdConnectProvider.fromOpenIdConnectProviderArn(
+      this, 'GitHubOidc',
+      `arn:aws:iam::${this.account}:oidc-provider/token.actions.githubusercontent.com`,
+    )
 
     const githubRole = new iam.Role(this, 'GitHubActionsRole', {
       roleName: 'certpath-github-actions',
@@ -703,7 +704,7 @@ export class CertpathStack extends cdk.Stack {
           })],
         }),
       },
-      description: 'GitHub Actions OIDC deployer — assumes CDK bootstrap roles only',
+      description: 'GitHub Actions OIDC deployer - assumes CDK bootstrap roles only',
     })
 
     // ── Outputs ───────────────────────────────────────────────────────────────
